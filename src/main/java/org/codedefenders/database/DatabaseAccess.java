@@ -845,6 +845,39 @@ public class DatabaseAccess {
 		return getTests(stmt, conn).get(0);
 	}
 
+    /**
+     * Get games where a certain class is under test.
+     * @param gid
+     * @return
+     */
+    public static List<DuelGame> getGamesForClass(int cid) {
+        String query = "SELECT g.ID, g.Class_ID, g.Level, g.Creator_ID, g.State,"
+                + "g.CurrentRound, g.FinalRound, g.ActiveRole, g.Mode, g.Creator_ID,\n"
+                + "IFNULL(att.User_ID,0) AS Attacker_ID, IFNULL(def.User_ID,0) AS Defender_ID\n"
+                + "FROM games AS g\n"
+                + "LEFT JOIN players AS att ON g.ID=att.Game_ID  AND att.Role='ATTACKER' AND att.Active=TRUE\n"
+                + "LEFT JOIN players AS def ON g.ID=def.Game_ID AND def.Role='DEFENDER' AND def.Active=TRUE\n"
+                + "WHERE g.Class_ID=? AND g.IsAIDummyGame=FALSE;";
+        // String query = "SELECT * FROM games WHERE Class_ID=?;";
+        Connection conn = DB.getConnection();
+        PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(cid));
+        return getGames(stmt, conn);
+
+		/* userid übergeben hier
+		String query = "SELECT g.ID, g.Class_ID, g.Level, g.Creator_ID, g.State, g.CurrentRound, g.FinalRound, g.ActiveRole,"
+				+ " g.Mode, g.Creator_ID,\n" + "IFNULL(att.User_ID,0) AS Attacker_ID, IFNULL(def.User_ID,0) AS Defender_ID"
+						+ " FROM games AS g LEFT JOIN players AS att ON g.ID=att.Game_ID  AND att.Role='ATTACKER' AND"
+						+ " att.Active=TRUE\n" + "LEFT JOIN players AS def ON g.ID=def.Game_ID AND def.Role='DEFENDER' AND"
+								+ " def.Active=TRUE WHERE g.Mode != 'PARTY' AND g.State!='FINISHED' AND (g.Creator_ID=? OR"
+								+ " IFNULL(att.User_ID,0)=? OR IFNULL(def.User_ID,0)=?);";
+		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(userId),
+				DB.getDBV(userId),
+				DB.getDBV(userId)};
+		Connection conn = DB.getConnection();
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
+		return getGames(stmt, conn); */
+    }
+
 	/**
 	 * @param gameId
 	 * @param defendersOnly

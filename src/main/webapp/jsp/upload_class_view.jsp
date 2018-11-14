@@ -22,6 +22,7 @@
 <%@ page import="org.codedefenders.database.FeedbackDAO" %>
 <%@ page import="org.codedefenders.database.GameClassDAO" %>
 <%@ page import="org.codedefenders.game.GameClass" %>
+<%@ page import="org.codedefenders.game.singleplayer.PrepareAI" %>
 <%@ page import="java.util.List" %>
 <% String pageTitle=null; %>
 <%@ include file="/jsp/header_main.jsp" %>
@@ -168,18 +169,16 @@
 							<td><%=GameClassDAO.getMappedDependencyIdsForClassId(c.getId()).size()%>/<%=GameClassDAO.getMappedTestIdsForClassId(c.getId()).size()%>/<%=GameClassDAO.getMappedMutantIdsForClassId(c.getId()).size()%></td>
 							<td><%=mutationDiff > 0 ? String.valueOf(mutationDiff) : ""%></td>
 							<td><%=testingDiff > 0 ? String.valueOf(testingDiff) : ""%></td>
-							<!--
 							<td>
 								<form id="aiPrepButton<%= c.getId() %>" action="<%=request.getContextPath() %>/ai_preparer" method="post" >
 									<button type="submit" class="btn btn-primary btn-game btn-right" form="aiPrepButton<%= c.getId() %>" onClick="this.form.submit(); this.disabled=true; this.value='Preparing...';"
-											<% //if (PrepareAI.isPrepared(c)) { %> disabled <% //} %>>
+											<% if (PrepareAI.isPrepared(c)) { %> disabled <% } %>>
 										Prepare AI
 									</button>
 									<input type="hidden" name="formType" value="runPrepareAi" />
 									<input type="hidden" name="cutID" value="<%= c.getId() %>" />
 								</form>
 							</td>
-							-->
 						</tr>
 					<% } %>
 				</tbody>

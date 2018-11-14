@@ -48,6 +48,7 @@ public abstract class AbstractGame {
 	protected GameState state;
 	protected GameLevel level;
 	protected GameMode mode;
+	protected boolean isAIDummyGame;
 
 	protected ArrayList<Event> events;
 	protected List<Mutant> mutants;
@@ -107,6 +108,10 @@ public abstract class AbstractGame {
 	}
 
 	protected void setMode(GameMode newMode) { this.mode = newMode; }
+
+	public boolean isAIDummyGame() { return isAIDummyGame; }
+
+	public void setAIDummyGame(boolean isAIDummyGame) {	this.isAIDummyGame = isAIDummyGame; }
 
 	public List<Test> getTests() {
 		return getTests(false);

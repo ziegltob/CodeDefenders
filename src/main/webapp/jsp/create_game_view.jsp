@@ -42,7 +42,6 @@
 					<a href="games/upload" class="text-center new-account">Upload Class</a>
 				</td>
 			</tr>
-			<%-- Disable mode selection for release.
 			<tr>
 				<td>Mode</td>
 				<td>
@@ -53,7 +52,6 @@
 					</select>
 				</td>
 			</tr>
-			--%>
 			<tr>
 				<td>Role</td> <td id="roleTd"><input type="checkbox" id="role" name="role" class="form-control" data-size="large" data-toggle="toggle" data-on="Attacker" data-off="Defender" data-onstyle="success" data-offstyle="primary"></td>
 			</tr>

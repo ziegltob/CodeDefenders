@@ -26,6 +26,7 @@ import org.codedefenders.game.singleplayer.automated.attacker.AiAttacker;
 import org.codedefenders.game.singleplayer.automated.attacker.MajorMaker;
 import org.codedefenders.game.singleplayer.automated.defender.AiDefender;
 import org.codedefenders.game.singleplayer.automated.defender.EvoSuiteMaker;
+import org.codedefenders.game.singleplayer.automated.defender.GenerateTestPool;
 import org.codedefenders.database.DatabaseAccess;
 import org.codedefenders.game.Mutant;
 import org.codedefenders.game.Test;
@@ -43,7 +44,7 @@ public class PrepareAI {
 
 	}
 
-	public static boolean createTestsAndMutants(int classId) {
+	public static boolean createTestsAndMutants(int classId, boolean useTool) {
 
 		AIDummyGame dummyGame = new AIDummyGame(classId);
 		dummyGame.insert();
@@ -52,110 +53,170 @@ public class PrepareAI {
 
 		GameClass cut = DatabaseAccess.getClassForKey("Class_ID", classId);
 
-		//Generate tests.
-		EvoSuiteMaker esMake = new EvoSuiteMaker(classId, dummyGame);
-		try {
-			esMake.makeSuite();
-		} catch (Exception e) {
-			e.printStackTrace();
-			killAi(cut);
-			return false;
-		}
-
-		//Make the suite include timeouts, to prevent infinite looping
-		//when checking equivalence against a player's mutants.
-		if (esMake.addTimeoutsToSuite(4000)) {
-			//Compile the modified suite.
-			if (!AntRunner.compileGenTestSuite(cut)) {
+		// Generate tests.
+		if (useTool) {
+			EvoSuiteMaker esMake = new EvoSuiteMaker(classId, dummyGame);
+			try {
+				esMake.makeSuite();
+			} catch (Exception e) {
+				e.printStackTrace();
 				killAi(cut);
-				return false; //Failed
+				return false;
 			}
-		} else {
-			killAi(cut);
-			return false; //Failed
-		}
 
-		//Generate mutants.
-		MajorMaker mMake = new MajorMaker(classId, dummyGame);
-		try {
-			mMake.createMutants();
-		} catch (Exception e) {
-			e.printStackTrace();
-			killAi(cut);
-			return false;
-		}
+			// Make the suite include timeouts, to prevent infinite looping
+			// when checking equivalence against a player's mutants.
+			if (esMake.addTimeoutsToSuite(4000)) {
+				// Compile the modified suite.
+				if (!AntRunner.compileGenTestSuite(cut)) {
+					killAi(cut);
+					return false; // Failed
+				}
+			} else {
+				killAi(cut);
+				return false; // Failed
+			}
 
-		ArrayList<Test> tests = esMake.getValidTests();
-		ArrayList<Mutant> mutants = mMake.getValidMutants();
+			// Generate mutants.
+			MajorMaker mMake = new MajorMaker(classId, dummyGame);
+			try {
+				mMake.createMutants();
+			} catch (Exception e) {
+				e.printStackTrace();
+				killAi(cut);
+				return false;
+			}
 
-		for (Test t : tests) {
-			for (Mutant m : mutants) {
-				//Find if mutant killed by test.
-				if(AntRunner.testKillsMutant(m, t)) {
-					m.incrementTimesKilledAi();
-					t.incrementAiMutantsKilled();
+			ArrayList<Test> tests = esMake.getValidTests();
+			ArrayList<Mutant> mutants = mMake.getValidMutants();
+
+			for (Test t : tests) {
+				for (Mutant m : mutants) {
+					// Find if mutant killed by test.
+					if (AntRunner.testKillsMutant(m, t)) {
+						m.incrementTimesKilledAi();
+						t.incrementAiMutantsKilled();
+					}
 				}
 			}
+
+			// Store kill counts to SQL.
+			for (Test t : tests) {
+				t.update();
+			}
+			for (Mutant m : mutants) {
+				m.update();
+			}
+		} else {
+			GenerateTestPool genTests = new GenerateTestPool(classId, dummyGame);
+			try {
+				genTests.generateTests();
+			} catch (Exception e) {
+				e.printStackTrace();
+				killAi(cut);
+				return false;
+			}
+
+			// Maybe check if the test contains a timeout but users cant remove it anyways
+			/* Make the suite include timeouts, to prevent infinite looping
+			// when checking equivalence against a player's mutants.
+			if (esMake.addTimeoutsToSuite(4000)) {
+				// Compile the modified suite.
+				if (!AntRunner.compileGenTestSuite(cut)) {
+					killAi(cut);
+					return false; // Failed
+				}
+			} else {
+				killAi(cut);
+				return false; // Failed
+			}*/
+			/*
+			// Generate mutants.
+			MajorMaker mMake = new MajorMaker(classId, dummyGame);
+			try {
+				mMake.createMutants();
+			} catch (Exception e) {
+				e.printStackTrace();
+				killAi(cut);
+				return false;
+			}
+
+			ArrayList<Test> tests = genTests.getValidTests();
+			ArrayList<Mutant> mutants = mMake.getValidMutants();
+
+			for (Test t : tests) {
+				for (Mutant m : mutants) {
+					// Find if mutant killed by test.
+					if (AntRunner.testKillsMutant(m, t)) {
+						m.incrementTimesKilledAi();
+						t.incrementAiMutantsKilled();
+					}
+				}
+			}
+
+			// Store kill counts to SQL.
+			for (Test t : tests) {
+				t.update();
+			}
+			for (Mutant m : mutants) {
+				m.update();
+			}*/
 		}
 
-		//Store kill counts to SQL.
-		for (Test t : tests) {
-			t.update();
-		}
-		for (Mutant m: mutants) {
-			m.update();
-		}
-
-		DatabaseAccess.setAiPrepared(cut); //Mark class as being AI prepared.
+		DatabaseAccess.setAiPrepared(cut); // Mark class as being AI prepared.
 		dummyGame.update();
-		DatabaseAccess.setGameAsAIDummy(dummyGame.getId()); //Mark dummy game as a dummy game.
+		DatabaseAccess.setGameAsAIDummy(dummyGame.getId()); // Mark dummy game as a dummy game.
 
-		if(!isPrepared(cut)) {
-			//SQL has not been updated correctly, should discard everything and fail.
+		if (!isPrepared(cut)) {
+			// SQL has not been updated correctly, should discard everything and fail.
 			killAi(cut);
 			return false;
 		}
-		return true; //Succeeded
+		return true; // Succeeded
 	}
 
 	/**
-	 * Delete all generated AI files for a CUT.
-	 * Should be used if generation fails.
-	 * Mutants and tests are deleted separately, as one can be created without the other.
+	 * Delete all generated AI files for a CUT. Should be used if generation fails.
+	 * Mutants and tests are deleted separately, as one can be created without the
+	 * other.
 	 */
 	private static void killAi(GameClass c) {
 		try {
 			File tDir = new File(AI_DIR + F_SEP + "tests" + F_SEP + c.getAlias());
 			FileUtils.deleteDirectory(tDir);
 		} catch (IOException e) {
-			//Deleting mutants failed.
+			// Deleting mutants failed.
 			e.printStackTrace();
 		}
 		try {
 			File mDir = new File(AI_DIR + F_SEP + "mutants" + F_SEP + c.getAlias());
 			FileUtils.deleteDirectory(mDir);
 		} catch (IOException e) {
-			//Deleting mutants failed.
+			// Deleting mutants failed.
 			e.printStackTrace();
 		}
 	}
 
 	/**
 	 * Select an index of an arraylist, with a bias to earlier or later values.
-	 * @param length Number of indexes in the arraylist.
-	 * @param bias The bias power to use. >1 biases towards earlier indexes, <1 biases towards later indexes.
+	 *
+	 * @param length
+	 *            Number of indexes in the arraylist.
+	 * @param bias
+	 *            The bias power to use. >1 biases towards earlier indexes, <1
+	 *            biases towards later indexes.
 	 * @return the resulting index.
 	 */
 	public static int biasedSelection(int length, double bias) {
 
-		//Generate a random number biased towards smaller or larger values.
+		// Generate a random number biased towards smaller or larger values.
 		double r = Math.pow(Math.random(), bias);
 
 		return (int) Math.floor(r * length);
 	}
 
 	public static boolean isPrepared(GameClass cut) {
-		if(DatabaseAccess.isAiPrepared(cut)) {
+		if (DatabaseAccess.isAiPrepared(cut)) {
 			return true;
 		}
 		return false;
