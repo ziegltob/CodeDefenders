@@ -72,6 +72,22 @@
 		<input type="hidden" name="formType" value="startGame">
 		<input type="hidden" name="mpGameID" value="<%= game.getId() %>" />
 	</form>
+	<form id="adminAddDefender" action="<%=request.getContextPath() + "/" + game.getClass().getSimpleName().toLowerCase()%>" method="post" style="display: inline-block;">
+		<button type="submit" class="btn btn-primary btn-game" id="addDefender" form="adminAddDefender"
+				<%--<% if (game.getState() != GameState.CREATED) { %> disabled <% } %>--%>>
+			Add AI-Defender
+		</button>
+		<input type="hidden" name="formType" value="addDefender">
+		<input type="hidden" name="mpGameID" value="<%= game.getId() %>" />
+	</form>
+	<form id="adminAddAttacker" action="<%=request.getContextPath() + "/" + game.getClass().getSimpleName().toLowerCase()%>" method="post" style="display: inline-block;">
+		<button type="submit" class="btn btn-primary btn-game" id="addAttacker" form="adminAddAttacker"
+		<%--<% if (game.getState() != GameState.CREATED) { %> disabled <% } %>--%>>
+			Add AI-Attacker
+		</button>
+		<input type="hidden" name="formType" value="addAttacker">
+		<input type="hidden" name="mpGameID" value="<%= game.getId() %>" />
+	</form>
 </div>
 
 <div class="row" style="padding: 0px 15px;">

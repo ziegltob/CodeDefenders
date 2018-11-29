@@ -18,6 +18,10 @@
  */
 package org.codedefenders.game.singleplayer.automated.attacker;
 
+import org.apache.commons.lang.StringEscapeUtils;
+import org.codedefenders.execution.AntRunner;
+import org.codedefenders.execution.TargetExecution;
+import org.codedefenders.game.AbstractGame;
 import org.codedefenders.game.GameClass;
 import org.codedefenders.game.Role;
 import org.codedefenders.execution.MutationTester;
@@ -27,13 +31,23 @@ import org.codedefenders.game.singleplayer.NoDummyGameException;
 import org.codedefenders.game.singleplayer.PrepareAI;
 import org.codedefenders.database.DatabaseAccess;
 import org.codedefenders.game.Mutant;
+import org.codedefenders.model.Event;
+import org.codedefenders.model.EventStatus;
+import org.codedefenders.model.EventType;
+import org.codedefenders.servlets.games.GameManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
+
+import static org.codedefenders.util.Constants.MUTANT_COMPILED_MESSAGE;
+import static org.codedefenders.util.Constants.MUTANT_UNCOMPILABLE_MESSAGE;
+import static org.codedefenders.util.Constants.SESSION_ATTRIBUTE_PREVIOUS_MUTANT;
 
 /**
  * @author Ben Clegg
@@ -45,7 +59,7 @@ public class AiAttacker extends AiPlayer {
 
 	public static final int ID = 1;
 
-	public AiAttacker(DuelGame g) {
+	public AiAttacker(AbstractGame g) {
 		super(g);
 		role = Role.ATTACKER;
 	}
@@ -76,6 +90,7 @@ public class AiAttacker extends AiPlayer {
 	protected boolean runTurn(GenerationMethod strat) {
 		try {
 			int mNum = selectMutant(strat);
+			System.out.println("lolaa");
 			useMutantFromSuite(mNum);
 		} catch (NoMutantsException e) {
 			//No more unused mutants remain,
@@ -93,19 +108,21 @@ public class AiAttacker extends AiPlayer {
 		List<Integer> usedMutants = DatabaseAccess.getUsedAiMutantsForGame(game);
 		GameClass cut = game.getCUT();
 
-		// TODO: This isn't actually an AIDummyGame
 		DuelGame dummyGame = cut.getDummyGame();
-		List<Mutant> origMutants = dummyGame.getMutants();
 
-		List<Mutant> candidateMutants = origMutants.stream().filter(mutant -> !usedMutants.contains(mutant.getId())).collect(Collectors.toList());
+		// TODO: dummyGame.aiMutants should return all prepared Mutants for this cut
+		// as it is now only mutants for the current game will be returned
+		List<Mutant> candidateMutants = dummyGame.getMutants().stream().filter(mutant -> !usedMutants.contains(mutant.getId())).collect(Collectors.toList());
 
 		if(candidateMutants.isEmpty()) {
+			System.out.println("candidatemutantlist emptpty leider");
 			throw new NoMutantsException("No unused generated mutants remain.");
 		}
 
 		switch(strategy) {
 			case RANDOM:
 				Random r = new Random();
+				System.out.println("RANDOMMUTANT" + r.nextInt(candidateMutants.size()));
 				Mutant selected = candidateMutants.get(r.nextInt(candidateMutants.size()));
 				return selected.getId();
 			case KILLCOUNT:
@@ -137,9 +154,34 @@ public class AiAttacker extends AiPlayer {
 			}
 		}
 
+		System.out.println("lol");
 		if(origM == null) {
 			throw new NoMutantsException("No mutant exists for ID: " + origMutNum);
 		}
+
+		/* Mutant newMutant = GameManager.createMutant(activeGame.getId(), activeGame.getClassId(), mutantText, uid, "mp");
+		if (newMutant != null) {
+			TargetExecution compileMutantTarget = DatabaseAccess.getTargetExecutionForMutant(newMutant, TargetExecution.Target.COMPILE_MUTANT);
+			if (compileMutantTarget != null && compileMutantTarget.status.equals("SUCCESS")) {
+				Event notif = new Event(-1, activeGame.getId(), uid,
+						DatabaseAccess.getUser(uid).getUsername() + " created a mutant.",
+						EventType.ATTACKER_MUTANT_CREATED, EventStatus.GAME,
+						new Timestamp(System.currentTimeMillis() - 1000));
+				notif.insert();
+				messages.add(MUTANT_COMPILED_MESSAGE);
+				MutationTester.runAllTestsOnMutant(activeGame, newMutant, messages);
+				activeGame.update();
+
+				// Clean the mutated code only if mutant is accepted
+				session.removeAttribute(SESSION_ATTRIBUTE_PREVIOUS_MUTANT);
+
+			} else {
+				messages.add(MUTANT_UNCOMPILABLE_MESSAGE);
+				if (compileMutantTarget != null && compileMutantTarget.message != null && !compileMutantTarget.message.isEmpty()) {
+					messages.add(compileMutantTarget.message);
+				}
+				session.setAttribute(SESSION_ATTRIBUTE_PREVIOUS_MUTANT, StringEscapeUtils.escapeHtml(mutantText));
+			} */
 
 		String jFile = origM.getSourceFile();
 		String cFile = origM.getClassFile();
@@ -147,10 +189,15 @@ public class AiAttacker extends AiPlayer {
 		Mutant m = new Mutant(game.getId(), jFile, cFile, true, playerId);
 		m.insert();
 		m.update();
+		TargetExecution newExec = new TargetExecution(m.getId(), 0, TargetExecution.Target.COMPILE_MUTANT, "SUCCESS", null);
+		newExec.insert();
 
 		MutationTester.runAllTestsOnMutant(game, m, messages);
 		DatabaseAccess.setAiMutantAsUsed(origMutNum, game);
 		game.update();
+		System.out.println("ist es drin??");
+
+		getMessagesLastTurn();
 	}
 
 	@Override

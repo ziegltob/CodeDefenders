@@ -109,7 +109,7 @@ public class MutationTester {
 	// Inputs: The ID of the game to run mutation tests for
 	// Outputs: None
 
-	public static void runTestOnAllMutants(DuelGame game, Test test, ArrayList<String> messages) {
+	public static void runTestOnAllMutants(AbstractGame game, Test test, ArrayList<String> messages) {
 		int killed = 0;
 		List<Mutant> mutants = game.getAliveMutants();
 		for (Mutant mutant : mutants) {

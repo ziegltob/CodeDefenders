@@ -23,6 +23,7 @@ import org.codedefenders.execution.AntRunner;
 import org.codedefenders.game.GameClass;
 import org.codedefenders.game.Role;
 import org.codedefenders.game.singleplayer.automated.attacker.AiAttacker;
+import org.codedefenders.game.singleplayer.automated.attacker.GenerateMutantPool;
 import org.codedefenders.game.singleplayer.automated.attacker.MajorMaker;
 import org.codedefenders.game.singleplayer.automated.defender.AiDefender;
 import org.codedefenders.game.singleplayer.automated.defender.EvoSuiteMaker;
@@ -108,6 +109,7 @@ public class PrepareAI {
 				m.update();
 			}
 		} else {
+			// Generate the TestPool from previous played games.
 			GenerateTestPool genTests = new GenerateTestPool(classId, dummyGame);
 			try {
 				genTests.generateTests();
@@ -117,50 +119,15 @@ public class PrepareAI {
 				return false;
 			}
 
-			// Maybe check if the test contains a timeout but users cant remove it anyways
-			/* Make the suite include timeouts, to prevent infinite looping
-			// when checking equivalence against a player's mutants.
-			if (esMake.addTimeoutsToSuite(4000)) {
-				// Compile the modified suite.
-				if (!AntRunner.compileGenTestSuite(cut)) {
-					killAi(cut);
-					return false; // Failed
-				}
-			} else {
-				killAi(cut);
-				return false; // Failed
-			}*/
-			/*
-			// Generate mutants.
-			MajorMaker mMake = new MajorMaker(classId, dummyGame);
+			// Generate the MutantPool from previous played games.
+			GenerateMutantPool genMutants = new GenerateMutantPool(classId, dummyGame);
 			try {
-				mMake.createMutants();
+				genMutants.generateMutants();
 			} catch (Exception e) {
 				e.printStackTrace();
 				killAi(cut);
 				return false;
 			}
-
-			ArrayList<Test> tests = genTests.getValidTests();
-			ArrayList<Mutant> mutants = mMake.getValidMutants();
-
-			for (Test t : tests) {
-				for (Mutant m : mutants) {
-					// Find if mutant killed by test.
-					if (AntRunner.testKillsMutant(m, t)) {
-						m.incrementTimesKilledAi();
-						t.incrementAiMutantsKilled();
-					}
-				}
-			}
-
-			// Store kill counts to SQL.
-			for (Test t : tests) {
-				t.update();
-			}
-			for (Mutant m : mutants) {
-				m.update();
-			}*/
 		}
 
 		DatabaseAccess.setAiPrepared(cut); // Mark class as being AI prepared.

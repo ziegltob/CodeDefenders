@@ -6,15 +6,12 @@ import org.codedefenders.game.duel.DuelGame;
 import org.codedefenders.database.DatabaseAccess;
 import org.codedefenders.execution.TargetExecution;
 import org.codedefenders.game.Test;
-import org.codedefenders.util.Constants;
 import org.codedefenders.util.FileUtils;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static org.codedefenders.util.Constants.*;
 

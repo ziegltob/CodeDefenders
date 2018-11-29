@@ -18,8 +18,12 @@
  */
 package org.codedefenders.game.singleplayer;
 
+import org.apache.commons.collections.bidimap.DualHashBidiMap;
+import org.codedefenders.game.AbstractGame;
+import org.codedefenders.game.GameMode;
 import org.codedefenders.game.duel.DuelGame;
 import org.codedefenders.game.Role;
+import org.codedefenders.game.multiplayer.MultiplayerGame;
 
 import java.util.ArrayList;
 
@@ -35,12 +39,23 @@ public abstract class AiPlayer {
 		KILLCOUNT //Number of mutants a test kills, or number of tests that kill mutant.
 	}
 
-	protected DuelGame game;
+	// one variable game which will be assigned to a specific type
+	protected AbstractGame game;
+	protected MultiplayerGame multiplayerGame;
+	protected SinglePlayerGame singlePlayerGame;
 	protected Role role;
 	protected ArrayList<String> messages;
 
-	public AiPlayer(DuelGame g) {
+	public AiPlayer(AbstractGame g) {
+		/*if (g.getMode() == GameMode.DUEL) {
+			game = (DuelGame) g;
+		} else if (g.getMode() == GameMode.PARTY) {
+			multiplayerGame = (MultiplayerGame) g;
+		} else if (g.getMode() == GameMode.SINGLE) {
+			singlePlayerGame = (SinglePlayerGame) g;
+		} */
 		game = g;
+
 		messages = new ArrayList<String>();
 	}
 
@@ -50,10 +65,11 @@ public abstract class AiPlayer {
 	 */
 	public boolean makeTurn() {
 		boolean success = false;
+		DuelGame duelGame = (DuelGame) game;
 		messages.clear();
-		if (game.getActiveRole().equals(role)) {
+		if (duelGame.getActiveRole().equals(role)) {
 			if (tryTurn()) { success = true; }
-			game.endTurn();
+			duelGame.endTurn();
 		}
 		return success;
 	}

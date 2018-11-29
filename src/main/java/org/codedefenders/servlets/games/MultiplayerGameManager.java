@@ -26,7 +26,11 @@ import org.codedefenders.game.GameState;
 import org.codedefenders.game.Mutant;
 import org.codedefenders.game.Role;
 import org.codedefenders.game.Test;
+import org.codedefenders.game.duel.DuelGame;
 import org.codedefenders.game.multiplayer.MultiplayerGame;
+import org.codedefenders.game.singleplayer.CheckAiMoveThread;
+import org.codedefenders.game.singleplayer.automated.attacker.AiAttacker;
+import org.codedefenders.game.singleplayer.automated.defender.AiDefender;
 import org.codedefenders.model.Event;
 import org.codedefenders.model.EventStatus;
 import org.codedefenders.model.EventType;
@@ -42,7 +46,12 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -369,6 +378,76 @@ public class MultiplayerGameManager extends HttpServlet {
 				} else {
 					messages.add(GRACE_PERIOD_MESSAGE);
 				}
+				break;
+			}
+
+			case "addDefender": {
+				// add a ! later on so it makes sense
+				// executor service auslagern mit threadpool
+				/*if (!DatabaseAccess.getJoinedMultiplayerGamesForUser(AiDefender.ID).stream()
+						.filter(joinedGames -> joinedGames.getId() == activeGame.getId())
+						.findFirst().isPresent()) {*/
+				activeGame.addPlayer(AiDefender.ID, Role.DEFENDER);
+
+				ScheduledExecutorService scheduler;
+
+				scheduler = Executors.newSingleThreadScheduledExecutor();
+				scheduler.scheduleAtFixedRate(new CheckAiMoveThread(activeGame, Role.DEFENDER), 0, 1, TimeUnit.MINUTES);
+				messages.add("AI-Defender scheduled to game " + activeGame.getId());
+				//}
+				/* try {
+					DuelGame jGame = DatabaseAccess.getGameForKey("ID", gameId);
+
+					if ((jGame.getAttackerId() == uid) || (jGame.getDefenderId() == uid)) {
+						// uid is already in the game
+						if (jGame.getDefenderId() == uid)
+							messages.add("Already a defender in this game!");
+						else
+							messages.add("Already an attacker in this game!");
+						// either way, reload list of open games
+						Redirect.redirectBack(request, response);
+						break;
+					} else {
+						if (jGame.getAttackerId() == 0) {
+							jGame.addPlayer(uid, Role.ATTACKER);
+							messages.add("Joined game as an attacker.");
+						} else if (jGame.getDefenderId() == 0) {
+							messages.add("Joined game as a defender.");
+							jGame.addPlayer(uid, Role.DEFENDER);
+						} else {
+							messages.add("DuelGame is no longer open.");
+							Redirect.redirectBack(request, response);
+							break;
+						}
+						// user joined, update game
+						jGame.setState(GameState.ACTIVE);
+						jGame.setActiveRole(Role.ATTACKER);
+						jGame.update();
+						// go to play view
+						session.setAttribute("gid", gameId);
+						response.sendRedirect(contextPath+"/"+jGame.getClass().getSimpleName().toLowerCase());
+					}
+				} catch (Exception e) {
+					messages.add("There was a problem joining the game.");
+					Redirect.redirectBack(request, response);
+				} */
+
+				break;
+			}
+
+			case "addAttacker": {
+				// executor service auslagern mit threadpool
+				/*if (!DatabaseAccess.getJoinedMultiplayerGamesForUser(AiAttacker.ID).stream()
+						.filter(joinedGames -> joinedGames.getId() == activeGame.getId())
+						.findFirst().isPresent()) {*/
+				activeGame.addPlayer(AiAttacker.ID, Role.ATTACKER);
+
+				ScheduledExecutorService scheduler;
+
+				scheduler = Executors.newSingleThreadScheduledExecutor();
+				scheduler.scheduleAtFixedRate(new CheckAiMoveThread(activeGame, Role.ATTACKER), 0, 1, TimeUnit.MINUTES);
+				messages.add("AI-Attacker scheduled to game " + activeGame.getId());
+
 				break;
 			}
 			default:

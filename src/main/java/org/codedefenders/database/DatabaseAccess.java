@@ -714,7 +714,7 @@ public class DatabaseAccess {
 		return getMutantFromDB(stmt, conn);
 	}
 
-	public static List<Integer> getUsedAiTestsForGame(DuelGame g) {
+	public static List<Integer> getUsedAiTestsForGame(AbstractGame g) {
 		List<Integer> testList = new ArrayList<>();
 
 		String query = "SELECT * FROM usedaitests WHERE Game_ID=?;";
@@ -789,7 +789,7 @@ public class DatabaseAccess {
 		return DB.executeUpdate(stmt, conn);
 	}
 
-	public static boolean setAiTestAsUsed(int testNumber, DuelGame g) {
+	public static boolean setAiTestAsUsed(int testNumber, AbstractGame g) {
 		String query = "INSERT INTO usedaitests (Value, Game_ID) VALUES (?, ?);";
 		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(testNumber),
 				DB.getDBV(g.getId())};
@@ -798,7 +798,7 @@ public class DatabaseAccess {
 		return DB.executeUpdateGetKeys(stmt, conn) > -1;
 	}
 
-	public static List<Integer> getUsedAiMutantsForGame(DuelGame g) {
+	public static List<Integer> getUsedAiMutantsForGame(AbstractGame g) {
 		List<Integer> mutantList = new ArrayList<>();
 
 		String query = "SELECT * FROM usedaimutants WHERE Game_ID=?;";
@@ -822,7 +822,7 @@ public class DatabaseAccess {
 	 * @param g            the game the mutant belongs to
 	 * @return
 	 */
-	public static boolean setAiMutantAsUsed(int mutantNumber, DuelGame g) {
+	public static boolean setAiMutantAsUsed(int mutantNumber, AbstractGame g) {
 		String query = "INSERT INTO usedaimutants (Value, Game_ID) VALUES (?, ?);";
 		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(mutantNumber),
 				DB.getDBV(g.getId())};
@@ -896,6 +896,7 @@ public class DatabaseAccess {
 				 "      AND ex.Status='SUCCESS'",
 				 "  );"
 		);
+		// System.out.println(query);
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gameId));
 		return getTests(stmt, conn);

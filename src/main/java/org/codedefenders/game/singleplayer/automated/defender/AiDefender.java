@@ -19,18 +19,15 @@
 package org.codedefenders.game.singleplayer.automated.defender;
 
 import org.codedefenders.execution.AntRunner;
-import org.codedefenders.game.GameClass;
-import org.codedefenders.game.Role;
+import org.codedefenders.game.*;
 import org.codedefenders.execution.MutationTester;
 import org.codedefenders.game.duel.DuelGame;
-import org.codedefenders.game.LineCoverage;
+import org.codedefenders.game.multiplayer.MultiplayerGame;
 import org.codedefenders.game.singleplayer.AiPlayer;
 import org.codedefenders.game.singleplayer.NoDummyGameException;
 import org.codedefenders.game.singleplayer.PrepareAI;
 import org.codedefenders.database.DatabaseAccess;
-import org.codedefenders.game.Mutant;
 import org.codedefenders.execution.TargetExecution;
-import org.codedefenders.game.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +45,7 @@ public class AiDefender extends AiPlayer {
 
 	public static final int ID = 2;
 
-	public AiDefender(DuelGame g) {
+	public AiDefender(AbstractGame g) {
 		super(g);
 		role = Role.DEFENDER;
 	}
@@ -84,13 +81,16 @@ public class AiDefender extends AiPlayer {
 	}
 
 	private int selectTest(GenerationMethod strategy) throws NoTestsException, NoDummyGameException {
-
+	    // game is actually a multiplayer game
+        // For further development (singleplayer, DuelGame AI) the game has to be set correctly
+        // depending on the GameMode
 		List<Integer> usedTests = DatabaseAccess.getUsedAiTestsForGame(game);
 		GameClass cut = game.getCUT();
 		DuelGame dummyGame = cut.getDummyGame();
-
+		
 		//TODO: Discarding useless tests in origtests would be a sideeffect
 		List<Test> candidateTests = dummyGame.getTests().stream().filter(test -> !usedTests.contains(test.getId())).collect(Collectors.toList());
+
 
 		if(candidateTests.isEmpty()) {
 			throw new NoTestsException("All generated tests have already been used.");
@@ -164,6 +164,7 @@ public class AiDefender extends AiPlayer {
 
 	private int getTestIdByRandom(List<Test> possibleTests) {
 		Random r = new Random();
+		System.out.println("RANDOM" + r.nextInt(possibleTests.size()));
 		Test selected = possibleTests.get(r.nextInt(possibleTests.size()));
 		return selected.getId();
 	}
@@ -173,18 +174,18 @@ public class AiDefender extends AiPlayer {
 		DuelGame dummyGame = cut.getDummyGame();
 		List<Test> origTests = dummyGame.getTests();
 
-		Test origT = null;
+		Test origTest = null;
 
 		for (Test t : origTests) {
 			if(t.getId() == origTestNum) {
-				origT = t;
+				origTest = t;
 				break;
 			}
 		}
 
-		if(origT != null) {
-			String jFile = origT.getJavaFile();
-			String cFile = origT.getClassFile();
+		if(origTest != null) {
+			String jFile = origTest.getJavaFile();
+			String cFile = origTest.getClassFile();
 			int playerId = DatabaseAccess.getPlayerIdForMultiplayerGame(ID, game.getId());
 			Test t = new Test(game.getId(), jFile, cFile, playerId);
 			t.insert();
@@ -193,9 +194,10 @@ public class AiDefender extends AiPlayer {
 			newExec.insert();
 			MutationTester.runTestOnAllMutants(game, t, messages);
 			DatabaseAccess.setAiTestAsUsed(origTestNum, game);
-			File dir = new File(origT.getDirectory());
+			File dir = new File(origTest.getDirectory());
 			AntRunner.testOriginal(dir, t);
 			game.update();
+			getMessagesLastTurn();
 		}
 	}
 

@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
@@ -567,6 +568,19 @@ public class Mutant implements Serializable {
 		this.description = description;
 
 		return lines;
+	}
+
+	@SuppressWarnings("Duplicates")
+	public String getAsString() {
+		try {
+			return new String(Files.readAllBytes(Paths.get(javaFile)));
+		} catch (FileNotFoundException e) {
+			logger.error("Could not find file " + javaFile);
+			return "[File Not Found]";
+		} catch (IOException e) {
+			logger.error("Could not read file " + javaFile);
+			return "[File Not Readable]";
+		}
 	}
 
 	public synchronized List<String> getHTMLReadout() {
