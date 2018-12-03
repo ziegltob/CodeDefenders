@@ -110,11 +110,13 @@ public class AiAttacker extends AiPlayer {
 
 		DuelGame dummyGame = cut.getDummyGame();
 
+		System.out.println("dummyID" + dummyGame.getId());
 		// TODO: dummyGame.aiMutants should return all prepared Mutants for this cut
 		// as it is now only mutants for the current game will be returned
-		List<Mutant> candidateMutants = dummyGame.getMutants().stream().filter(mutant -> !usedMutants.contains(mutant.getId())).collect(Collectors.toList());
+		List<Mutant> candidateMutants = dummyGame.getMutantsFromPool().stream().filter(mutant -> !usedMutants.contains(mutant.getId())).collect(Collectors.toList());
 
-		if(candidateMutants.isEmpty()) {
+        candidateMutants.stream().forEach(mutant -> System.out.println("candidatelist:" + mutant.getId()));
+        if(candidateMutants.isEmpty()) {
 			System.out.println("candidatemutantlist emptpty leider");
 			throw new NoMutantsException("No unused generated mutants remain.");
 		}
@@ -154,7 +156,6 @@ public class AiAttacker extends AiPlayer {
 			}
 		}
 
-		System.out.println("lol");
 		if(origM == null) {
 			throw new NoMutantsException("No mutant exists for ID: " + origMutNum);
 		}
@@ -189,13 +190,12 @@ public class AiAttacker extends AiPlayer {
 		Mutant m = new Mutant(game.getId(), jFile, cFile, true, playerId);
 		m.insert();
 		m.update();
-		TargetExecution newExec = new TargetExecution(m.getId(), 0, TargetExecution.Target.COMPILE_MUTANT, "SUCCESS", null);
+		TargetExecution newExec = new TargetExecution(0, m.getId(), TargetExecution.Target.COMPILE_MUTANT, "SUCCESS", null);
 		newExec.insert();
 
 		MutationTester.runAllTestsOnMutant(game, m, messages);
 		DatabaseAccess.setAiMutantAsUsed(origMutNum, game);
 		game.update();
-		System.out.println("ist es drin??");
 
 		getMessagesLastTurn();
 	}

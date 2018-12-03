@@ -902,6 +902,22 @@ public class DatabaseAccess {
 		return getTests(stmt, conn);
 	}
 
+	public static List<Mutant> getExecutableMutants(int gameId) {
+		String query = String.join("\n",
+				"SELECT mutants.* FROM mutants",
+				"WHERE mutants.Game_ID=? AND mutants.ClassFile IS NOT NULL",
+				"	AND EXISTS (",
+				"	SELECT * FROM targetexecutions ex",
+				"	WHERE ex.Mutant_ID = mutants.Mutant_ID",
+				"		AND ex.Target='COMPILE_MUTANT'",
+				"		AND ex.Status='SUCCESS'",
+				"	);"
+		);
+		Connection conn = DB.getConnection();
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gameId));
+		return getMutants(stmt, conn);
+	}
+
 	public static List<Test> getExecutableTestsForClass(int classId) {
 		String query = String.join("\n",
 				"SELECT tests.*",

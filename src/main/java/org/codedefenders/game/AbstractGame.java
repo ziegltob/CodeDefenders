@@ -121,6 +121,14 @@ public abstract class AbstractGame {
 		return DatabaseAccess.getExecutableTests(this.id, defendersOnly);
 	}
 
+	/**
+	 * Gets all executable Mutants from the generated Mutant Pool.
+	 * @return a list of executable Mutants for the AI-Player to enter.
+	 */
+	public List<Mutant> getMutantsFromPool() {
+		return DatabaseAccess.getExecutableMutants(this.id);
+	}
+
 	public List<Mutant> getMutants() {
 		// This ensures we're only querying the db once for mutants
 		if (mutants == null){
