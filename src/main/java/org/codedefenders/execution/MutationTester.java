@@ -443,6 +443,10 @@ public class MutationTester {
         notif.insert();
     }
 
+    public static boolean testOnMutant(Test test, Mutant mutant) {
+		return testVsMutant(test, mutant);
+	}
+
     /**
      * Returns {@code true} iff {@code test} kills {@code mutant}.
      *

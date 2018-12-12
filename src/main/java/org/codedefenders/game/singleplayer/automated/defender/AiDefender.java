@@ -51,7 +51,7 @@ public class AiDefender extends AiPlayer {
 	}
 	public boolean turnHard() {
 		//Choose test which kills a high number of generated mutants.
-		return runTurn(GenerationMethod.COVERAGE);
+		return runTurn(GenerationMethod.KILLCOUNT);
 	}
 
 	public boolean turnEasy() {
@@ -153,13 +153,41 @@ public class AiDefender extends AiPlayer {
 	}
 
 	private int getTestIdByKillcount(List<Test> possibleTests) {
-		//Sort tests in order of killcount.
 		Collections.sort(possibleTests, new TestComparator());
+		List<Mutant> aliveMutants = game.getAliveMutants();
+		aliveMutants.sort(Collections.reverseOrder(Comparator.comparing(Mutant::getScore)));
 
-		//Get an index, using a random number biased towards later index.
-		//More extreme than attacker due to smaller sample size.
-		int n = PrepareAI.biasedSelection(possibleTests.size(), 0.6);
-		return possibleTests.get(n).getId();
+		// HashMap Key: mutantId, Value: List of Tests that cover this Mutant
+		HashMap<Integer, List<Test>> mutantCoveredByTests = new HashMap<>();
+		for (Test possibleTest : possibleTests) {
+			for (Mutant mutant : possibleTest.getCoveredMutants(aliveMutants)) {
+				if (mutantCoveredByTests.keySet().contains(mutant.getId())) {
+					mutantCoveredByTests.get(mutant.getId()).add(possibleTest);
+				} else {
+					List<Test> testList = new ArrayList<>();
+					testList.add(possibleTest);
+					mutantCoveredByTests.put(mutant.getId(), testList);
+				}
+			}
+		}
+		// testCoversMutants.entrySet().stream().filter(entry -> entry.getValue().size());
+
+		// brauche für einen mutanten alle tests die ihn covern
+		int bestTestId;
+		for (Mutant aliveMutant : aliveMutants) {
+			if (mutantCoveredByTests.containsKey(aliveMutant.getId())) {
+				for (Test test : mutantCoveredByTests.get(aliveMutant.getId())) {
+					if (MutationTester.testOnMutant(test, aliveMutant)) {
+						bestTestId = test.getId();
+						return bestTestId;
+					}
+				}
+			}
+		}
+
+		return -1;
+		// int n = PrepareAI.biasedSelection(possibleTests.size(), 0.6);
+		// return possibleTests.get(n).getId();
 	}
 
 	private int getTestIdByRandom(List<Test> possibleTests) {
