@@ -19,7 +19,9 @@
 package org.codedefenders.servlets.games;
 
 import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.xerces.util.SynchronizedSymbolTable;
 import org.codedefenders.database.DatabaseAccess;
+import org.codedefenders.execution.ExecutorPool;
 import org.codedefenders.execution.MutationTester;
 import org.codedefenders.execution.TargetExecution;
 import org.codedefenders.game.GameState;
@@ -381,20 +383,66 @@ public class MultiplayerGameManager extends HttpServlet {
 				break;
 			}
 
-			case "addDefender": {
-				// add a ! later on so it makes sense
-				// executor service auslagern mit threadpool
-				/*if (!DatabaseAccess.getJoinedMultiplayerGamesForUser(AiDefender.ID).stream()
+            case "pauseAttacker": {
+                if (DatabaseAccess.getJoinedMultiplayerGamesForUser(AiAttacker.ID).stream()
+                        .filter(joinedGames -> joinedGames.getId() == activeGame.getId())
+                        .findFirst().isPresent()) {
+                    int aiAttackerPlayerId = IntStream.of(activeGame.getAttackerIds())
+                            .filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiAttacker.ID).findFirst().getAsInt();
+                    ExecutorPool.getInstanceOf().cancelTask(aiAttackerPlayerId);
+                } else {
+                    logger.info("No Ai-Attacker in this game");
+                }
+                break;
+            }
+
+			case "pauseDefender": {
+				if (DatabaseAccess.getJoinedMultiplayerGamesForUser(AiDefender.ID).stream()
 						.filter(joinedGames -> joinedGames.getId() == activeGame.getId())
-						.findFirst().isPresent()) {*/
-				activeGame.addPlayer(AiDefender.ID, Role.DEFENDER);
+						.findFirst().isPresent()) {
+					int aiDefenderPlayerId = IntStream.of(activeGame.getDefenderIds())
+							.filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiDefender.ID).findFirst().getAsInt();
+					ExecutorPool.getInstanceOf().cancelTask(aiDefenderPlayerId);
+				} else {
+					logger.info("No Ai-Defender in this game");
+				}
+				break;
+			}
 
-				ScheduledExecutorService scheduler;
-
-				scheduler = Executors.newSingleThreadScheduledExecutor();
-				scheduler.scheduleAtFixedRate(new CheckAiMoveThread(activeGame, Role.DEFENDER), 0, 1, TimeUnit.MINUTES);
-				messages.add("AI-Defender scheduled to game " + activeGame.getId());
-				//}
+			case "addDefender": {
+				boolean aiDefenderJoinedGame = DatabaseAccess.getJoinedMultiplayerGamesForUser(AiDefender.ID).stream()
+						.filter(joinedGames -> joinedGames.getId() == activeGame.getId())
+						.findFirst().isPresent();
+				int aiDefenderPlayerId = 0;
+				if (aiDefenderJoinedGame) {
+					aiDefenderPlayerId = IntStream.of(DatabaseAccess.getInactiveAndActivePlayersForMultiplayerGame(activeGame.getId(), Role.DEFENDER))
+							.filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiDefender.ID).findFirst().getAsInt();
+				}
+				if (!aiDefenderJoinedGame || aiDefenderPlayerId != 0) {
+					boolean joinedGame;
+					if (aiDefenderPlayerId == 0) {
+						joinedGame = activeGame.addPlayer(AiDefender.ID, Role.DEFENDER);
+						aiDefenderPlayerId = IntStream.of(activeGame.getDefenderIds())
+								.filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiDefender.ID).findFirst().getAsInt();
+					} else {
+						joinedGame = true;
+					}
+					if (joinedGame) {
+						// add: ExecutorPool could not have enough resources and throw exception no more threads
+						try {
+							ExecutorPool.getInstanceOf().scheduleTask(aiDefenderPlayerId, activeGame, Role.DEFENDER);
+							messages.add("AI-Defender scheduled to game " + activeGame.getId());
+						} catch (Exception e) {
+							logger.error("No Executor for Defender available", e);
+							// bad exception handling here. dont throw this here!?
+							// throw new CouldNotAddAiPlayerException("No free Threads.");
+						}
+					} else {
+						logger.info("Only one AI-Player per Team allowed");
+					}
+				} else {
+					messages.add("AI-Defender was not added, something went wrong");
+				}
 				/* try {
 					DuelGame jGame = DatabaseAccess.getGameForKey("ID", gameId);
 
@@ -436,18 +484,43 @@ public class MultiplayerGameManager extends HttpServlet {
 			}
 
 			case "addAttacker": {
-				// executor service auslagern mit threadpool
-				/*if (!DatabaseAccess.getJoinedMultiplayerGamesForUser(AiAttacker.ID).stream()
+				boolean aiAttackerJoinedGame = DatabaseAccess.getJoinedMultiplayerGamesForUser(AiAttacker.ID).stream()
 						.filter(joinedGames -> joinedGames.getId() == activeGame.getId())
-						.findFirst().isPresent()) {*/
-				activeGame.addPlayer(AiAttacker.ID, Role.ATTACKER);
+						.findFirst().isPresent();
 
-				ScheduledExecutorService scheduler;
-
-				scheduler = Executors.newSingleThreadScheduledExecutor();
-				scheduler.scheduleAtFixedRate(new CheckAiMoveThread(activeGame, Role.ATTACKER), 0, 1, TimeUnit.MINUTES);
-				messages.add("AI-Attacker scheduled to game " + activeGame.getId());
-
+				System.out.println("AiAttackerjoined: "+ aiAttackerJoinedGame);
+				int aiAttackerPlayerId = 0;
+				System.out.println("AiAttackerplayerid 0" + aiAttackerPlayerId);
+				if (aiAttackerJoinedGame) {
+					aiAttackerPlayerId = IntStream.of(DatabaseAccess.getInactiveAndActivePlayersForMultiplayerGame(activeGame.getId(), Role.ATTACKER))
+							.filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiAttacker.ID).findFirst().getAsInt();
+				}
+				System.out.println("AiAttackerplayerid 1" + aiAttackerPlayerId);
+				if (!aiAttackerJoinedGame || aiAttackerPlayerId != 0) {
+					boolean joinedGame;
+					if (aiAttackerPlayerId == 0) {
+						joinedGame = activeGame.addPlayer(AiAttacker.ID, Role.ATTACKER);
+						aiAttackerPlayerId = IntStream.of(activeGame.getAttackerIds())
+								.filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiAttacker.ID).findFirst().getAsInt();
+					} else {
+						joinedGame = true;
+					}
+					if (joinedGame) {
+						// add: ExecutorPool could not have enough resources and throw exception no more threads
+						try {
+							ExecutorPool.getInstanceOf().scheduleTask(aiAttackerPlayerId, activeGame, Role.ATTACKER);
+							messages.add("AI-Attacker scheduled to game " + activeGame.getId());
+						} catch (Exception e) {
+							logger.error("No Executor for Attacker available", e);
+							// bad exception handling here. dont throw this here!?
+							// throw new CouldNotAddAiPlayerException("No free Threads.");
+						}
+					} else {
+						logger.info("Only one AI-Player per Team allowed");
+					}
+				} else {
+					messages.add("AI-Attacker was not added, something went wrong");
+				}
 				break;
 			}
 			default:
@@ -456,5 +529,20 @@ public class MultiplayerGameManager extends HttpServlet {
 				break;
 		}
 		response.sendRedirect(contextPath + "/multiplayer/play");
+	}
+
+	/**
+	 * Exception to be thrown by <code>ConnectionPool</code> and caught in calling
+	 * objects if it has no more available connections upon request.
+	 *
+	 * @author wendling
+	 */
+	public class CouldNotAddAiPlayerException extends Exception {
+		CouldNotAddAiPlayerException() {
+		}
+
+		public CouldNotAddAiPlayerException(String message) {
+			super(message);
+		}
 	}
 }

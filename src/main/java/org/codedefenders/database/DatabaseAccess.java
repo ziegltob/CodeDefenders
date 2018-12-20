@@ -257,6 +257,103 @@ public class DatabaseAccess {
 		DB.executeUpdate(stmt, conn);
 	}
 
+	public static Map<Integer, MultiplayerGame> getActiveGamesWithActiveAiAttacker() {
+		String query = "SELECT DISTINCT g.*,\n" +
+				"IFNULL(att.User_ID,0) AS Attacker_ID, att.ID AS Attacker_Player_ID\n" +
+				"FROM games AS g\n" +
+				"LEFT JOIN players AS att ON g.ID=att.Game_ID AND att.Role='ATTACKER' AND att.Active=TRUE\n" +
+				"WHERE g.State='ACTIVE'\n" +
+				"AND g.IsAIDummyGame = 0\n" +
+				"AND att.User_ID = 1\n" +
+                "AND att.Active = 1;";
+
+		Connection conn = DB.getConnection();
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query);
+        Map<Integer, MultiplayerGame>  gameMap = new HashMap<>();
+        try {
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                gameMap.put(rs.getInt("Attacker_Player_ID"), new MultiplayerGame(rs.getInt("Class_ID"), rs.getInt("Creator_ID"),
+                        GameLevel.valueOf(rs.getString("Level")), (float) rs.getDouble("Coverage_Goal"),
+                        (float) rs.getDouble("Mutant_Goal"), rs.getInt("Prize"), rs.getInt("Defender_Value"),
+                        rs.getInt("Attacker_Value"), rs.getInt("Defenders_Limit"), rs.getInt("Attackers_Limit"),
+                        rs.getInt("Defenders_Needed"), rs.getInt("Attackers_Needed"), rs.getTimestamp("Start_Time").getTime(),
+                        rs.getTimestamp("Finish_Time").getTime(), rs.getString("State"), rs.getBoolean("RequiresValidation"),
+                        rs.getInt("MaxAssertionsPerTest"),rs.getBoolean("ChatEnabled"),
+                        CodeValidatorLevel.valueOf(rs.getString("MutantValidator")), rs.getBoolean("MarkUncovered")));
+            }
+        } catch (SQLException se) {
+            logger.error("SQL exception caught", se);
+        } catch (Exception e) {
+            logger.error("Exception caught", e);
+        } finally {
+            DB.cleanup(conn, stmt);
+        }
+        return gameMap;
+	}
+
+	public static Map<Integer, MultiplayerGame> getActiveGamesWithActiveAiDefender() {
+		String query = "SELECT DISTINCT g.*,\n" +
+				"IFNULL(def.User_ID,0) AS Defender_ID, def.ID AS Defender_Player_ID\n" +
+				"FROM games AS g\n" +
+				"LEFT JOIN players AS def ON g.ID=def.Game_ID AND def.Role='DEFENDER' AND def.Active=TRUE\n" +
+				"WHERE g.State='ACTIVE'\n" +
+				"AND g.IsAIDummyGame = 0\n" +
+				"AND def.User_ID = 2\n" +
+                "AND def.Active = 1;";
+
+        Connection conn = DB.getConnection();
+        PreparedStatement stmt = DB.createPreparedStatement(conn, query);
+        Map<Integer, MultiplayerGame>  gameMap = new HashMap<>();
+        try {
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                gameMap.put(rs.getInt("Defender_Player_ID"), new MultiplayerGame(rs.getInt("Class_ID"), rs.getInt("Creator_ID"),
+                        GameLevel.valueOf(rs.getString("Level")), (float) rs.getDouble("Coverage_Goal"),
+                        (float) rs.getDouble("Mutant_Goal"), rs.getInt("Prize"), rs.getInt("Defender_Value"),
+                        rs.getInt("Attacker_Value"), rs.getInt("Defenders_Limit"), rs.getInt("Attackers_Limit"),
+                        rs.getInt("Defenders_Needed"), rs.getInt("Attackers_Needed"), rs.getTimestamp("Start_Time").getTime(),
+                        rs.getTimestamp("Finish_Time").getTime(), rs.getString("State"), rs.getBoolean("RequiresValidation"),
+                        rs.getInt("MaxAssertionsPerTest"),rs.getBoolean("ChatEnabled"),
+                        CodeValidatorLevel.valueOf(rs.getString("MutantValidator")), rs.getBoolean("MarkUncovered")));
+            }
+        } catch (SQLException se) {
+            logger.error("SQL exception caught", se);
+        } catch (Exception e) {
+            logger.error("Exception caught", e);
+        } finally {
+            DB.cleanup(conn, stmt);
+        }
+        return gameMap;
+	}
+
+	public static void setPlayerIsActive(int playerId, boolean isActive) {
+        String query = "UPDATE players SET Active=? WHERE ID=?";
+        DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(isActive),
+                DB.getDBV(playerId)};
+        Connection conn = DB.getConnection();
+        PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
+        DB.executeUpdate(stmt, conn);
+    }
+
+    public static boolean getPlayerIsActive(int playerId) {
+        String query = "SELECT * FROM players WHERE ID=?;";
+        Connection conn = DB.getConnection();
+        PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(playerId));
+        boolean isActive = false;
+        try {
+            ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+            while (rs.next()) {
+                isActive = rs.getBoolean("Active");
+            }
+        } catch (SQLException e) {
+            logger.error("SQLException while parsing result set for statement\n\t" + query, stmt);
+        } finally {
+            DB.cleanup(conn, stmt);
+        }
+        return isActive;
+    }
+
 	private static ArrayList<Event> getEvents(PreparedStatement stmt, Connection conn) {
 		ArrayList<Event> events = new ArrayList<Event>();
 		try {
@@ -944,6 +1041,40 @@ public class DatabaseAccess {
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return getInt(stmt, "ID", conn);
+	}
+
+	/**
+	 * We need to check if an Ai-Defender/Attacker has joined a game, therfore we need to
+	 * check inactive and active players since the Ai-Player can be paused. This is used to
+	 * activate and pause him again if he is in a certain game.
+	 * @param gameId the game we want to check
+	 * @param role Attacker/Defender Ai-Player
+	 * @return the array of playerIds found for a game
+	 */
+	public static int[] getInactiveAndActivePlayersForMultiplayerGame(int gameId, Role role) {
+		int[] players = new int[0];
+		String query = "SELECT * FROM players WHERE Game_ID = ? AND Role=?;";
+		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
+				DB.getDBV(role.toString())};
+		// Load the MultiplayerGame Data with the provided ID.
+		Connection conn = DB.getConnection();
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
+		try {
+			ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+			List<Integer> atks = new ArrayList<>();
+			while (rs.next()) {
+				atks.add(rs.getInt("ID"));
+				players = new int[atks.size()];
+				for (int i = 0; i < atks.size(); i++) {
+					players[i] = atks.get(i);
+				}
+			}
+		} catch (SQLException e) {
+			logger.error("SQLException while parsing result set for statement\n\t" + query, stmt);
+		} finally {
+			DB.cleanup(conn, stmt);
+		}
+		return players;
 	}
 
 	public static int[] getPlayersForMultiplayerGame(int gameId, Role role) {

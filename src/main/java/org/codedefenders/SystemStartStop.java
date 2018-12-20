@@ -19,6 +19,7 @@
 package org.codedefenders;
 
 import org.codedefenders.database.ConnectionPool;
+import org.codedefenders.execution.ExecutorPool;
 
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
@@ -26,6 +27,7 @@ import javax.servlet.http.HttpSessionAttributeListener;
 import javax.servlet.http.HttpSessionEvent;
 import javax.servlet.http.HttpSessionListener;
 import javax.servlet.http.HttpSessionBindingEvent;
+import java.util.concurrent.Executors;
 
 public class SystemStartStop implements ServletContextListener,
 		HttpSessionListener, HttpSessionAttributeListener {
@@ -43,6 +45,7 @@ public class SystemStartStop implements ServletContextListener,
          You can initialize servlet context related data here.
       */
 		ConnectionPool.getInstanceOf();
+		ExecutorPool.getInstanceOf().addAiPlayersOnStartup();
 	}
 
 	public void contextDestroyed(ServletContextEvent sce) {
@@ -51,6 +54,7 @@ public class SystemStartStop implements ServletContextListener,
          Application Server shuts down.
       */
       ConnectionPool.getInstanceOf().closeDBConnections();
+      ExecutorPool.getInstanceOf().shutdownExecutor();
 	}
 
 	// -------------------------------------------------------

@@ -18,6 +18,9 @@
     along with Code Defenders. If not, see <http://www.gnu.org/licenses/>.
 
 --%>
+<%@ page import="java.util.stream.IntStream" %>
+<%@ page import="org.codedefenders.game.singleplayer.automated.defender.AiDefender" %>
+<%@ page import="org.codedefenders.game.singleplayer.automated.attacker.AiAttacker" %>
 <% { %>
 
 <%-- Set request attributes for the components. --%>
@@ -73,19 +76,31 @@
 		<input type="hidden" name="mpGameID" value="<%= game.getId() %>" />
 	</form>
 	<form id="adminAddDefender" action="<%=request.getContextPath() + "/" + game.getClass().getSimpleName().toLowerCase()%>" method="post" style="display: inline-block;">
-		<button type="submit" class="btn btn-primary btn-game" id="addDefender" form="adminAddDefender"
-				<%--<% if (game.getState() != GameState.CREATED) { %> disabled <% } %>--%>>
-			Add AI-Defender
+		<% if (!IntStream.of(game.getDefenderIds()).anyMatch(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiDefender.ID)) { %>
+		<button type="submit" class="btn btn-primary btn-game" id="addDefender" form="adminAddDefender">
+			Activate AI-Defender
 		</button>
 		<input type="hidden" name="formType" value="addDefender">
+		<% } else { %>
+		<button type="submit" class="btn btn-primary btn-game" id="pauseAiDefender" form="adminAddDefender">
+			Pause AI-Defender
+		</button>
+		<input type="hidden" name="formType" value="pauseDefender">
+		<% } %>
 		<input type="hidden" name="mpGameID" value="<%= game.getId() %>" />
 	</form>
 	<form id="adminAddAttacker" action="<%=request.getContextPath() + "/" + game.getClass().getSimpleName().toLowerCase()%>" method="post" style="display: inline-block;">
-		<button type="submit" class="btn btn-primary btn-game" id="addAttacker" form="adminAddAttacker"
-		<%--<% if (game.getState() != GameState.CREATED) { %> disabled <% } %>--%>>
-			Add AI-Attacker
-		</button>
-		<input type="hidden" name="formType" value="addAttacker">
+        <% if (!IntStream.of(game.getAttackerIds()).anyMatch(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiAttacker.ID)) { %>
+        <button type="submit" class="btn btn-primary btn-game" id="addAttacker" form="adminAddAttacker">
+            Activate AI-Attacker
+        </button>
+        <input type="hidden" name="formType" value="addAttacker">
+        <% } else { %>
+        <button type="submit" class="btn btn-primary btn-game" id="pauseAiAttacker" form="adminAddAttacker">
+            Pause AI-Attacker
+        </button>
+        <input type="hidden" name="formType" value="pauseAttacker">
+        <% } %>
 		<input type="hidden" name="mpGameID" value="<%= game.getId() %>" />
 	</form>
 </div>
