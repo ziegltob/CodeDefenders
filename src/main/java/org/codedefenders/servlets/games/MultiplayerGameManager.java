@@ -60,6 +60,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import javax.xml.crypto.Data;
 
 import static org.codedefenders.game.Mutant.Equivalence.ASSUMED_YES;
 import static org.codedefenders.game.Mutant.Equivalence.PROVEN_NO;
@@ -389,7 +390,7 @@ public class MultiplayerGameManager extends HttpServlet {
                         .findFirst().isPresent()) {
                     int aiAttackerPlayerId = IntStream.of(activeGame.getAttackerIds())
                             .filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiAttacker.ID).findFirst().getAsInt();
-                    ExecutorPool.getInstanceOf().cancelTask(aiAttackerPlayerId);
+                    ExecutorPool.getInstanceOf().cancelTask(aiAttackerPlayerId, false);
                 } else {
                     logger.info("No Ai-Attacker in this game");
                 }
@@ -402,7 +403,7 @@ public class MultiplayerGameManager extends HttpServlet {
 						.findFirst().isPresent()) {
 					int aiDefenderPlayerId = IntStream.of(activeGame.getDefenderIds())
 							.filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiDefender.ID).findFirst().getAsInt();
-					ExecutorPool.getInstanceOf().cancelTask(aiDefenderPlayerId);
+					ExecutorPool.getInstanceOf().cancelTask(aiDefenderPlayerId, false);
 				} else {
 					logger.info("No Ai-Defender in this game");
 				}
@@ -425,6 +426,7 @@ public class MultiplayerGameManager extends HttpServlet {
 						aiDefenderPlayerId = IntStream.of(activeGame.getDefenderIds())
 								.filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiDefender.ID).findFirst().getAsInt();
 					} else {
+						DatabaseAccess.setPlayerIsActive(aiDefenderPlayerId, true);
 						joinedGame = true;
 					}
 					if (joinedGame) {
@@ -503,6 +505,7 @@ public class MultiplayerGameManager extends HttpServlet {
 						aiAttackerPlayerId = IntStream.of(activeGame.getAttackerIds())
 								.filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiAttacker.ID).findFirst().getAsInt();
 					} else {
+						DatabaseAccess.setPlayerIsActive(aiAttackerPlayerId, true);
 						joinedGame = true;
 					}
 					if (joinedGame) {

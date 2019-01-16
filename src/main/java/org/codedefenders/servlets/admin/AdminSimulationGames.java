@@ -16,44 +16,29 @@
  * You should have received a copy of the GNU General Public License
  * along with Code Defenders. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.codedefenders.game.singleplayer;
+package org.codedefenders.servlets.admin;
 
-import org.codedefenders.execution.AntRunner;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.codedefenders.game.multiplayer.MultiplayerGame;
+import org.codedefenders.util.Constants;
 
 import java.io.IOException;
-import java.util.ArrayList;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 
-public class AiPreparer extends HttpServlet {
-    private static final Logger logger = LoggerFactory.getLogger(AntRunner.class);
+public class AdminSimulationGames extends HttpServlet {
 
+    private MultiplayerGame multiplayerGame;
+
+    @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
-        response.sendRedirect(request.getContextPath()+"/games/upload");
+        request.getRequestDispatcher(Constants.ADMIN_SIMULATION_JSP).forward(request, response);
     }
 
+    @Override
     public void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
-        HttpSession session = request.getSession();
-        ArrayList<String> messages = new ArrayList<>();
-        session.setAttribute("messages", messages);
 
-        switch (request.getParameter("formType")) {
-            case "runPrepareAi":
-                int cutId = Integer.parseInt(request.getParameter("cutID"));
-                if(!PrepareAI.createTestsAndMutants(cutId, false)) {
-                    messages.add("Preparation of AI for the class failed, please prepare the class again, or try a different class.");
-                }
-                break;
-            default:
-                break;
-        }
-
-        response.sendRedirect(request.getContextPath()+"/games/upload");
     }
 }

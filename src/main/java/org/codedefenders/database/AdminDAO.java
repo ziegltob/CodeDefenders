@@ -64,6 +64,19 @@ public class AdminDAO {
                     "FROM games\n" +
                     "WHERE Mode = 'PARTY' AND (State = 'ACTIVE' OR State = 'CREATED') AND Creator_ID = ?;";
 
+    private static final String FINISHED_MULTIPLAYER_GAMES_BY_USER_QUERY =
+            "SELECT *\n" +
+                    "FROM games\n" +
+                    "   INNER JOIN players ON players.Game_ID = games.ID\n" +
+                    "WHERE Mode = 'PARTY' AND State = 'FINISHED' AND Creator_ID = ?\n" +
+                    "GROUP BY games.ID;";
+
+    private static final String SIMULATION_MULTIPLAYER_GAMES_BY_USER_QUERY =
+            "SELECT *\n" +
+                    "FROM games\n" +
+                    "WHERE Mode = 'PARTY' AND State = 'ACTIVE' AND Creator_ID = ? AND IsSimulationGame = 1\n" +
+                    "GROUP BY games.ID;";
+
     private static final String LAST_ROLE_QUERY =
             "SELECT\n" +
                     "  players.User_ID,\n" +
@@ -371,6 +384,20 @@ public class AdminDAO {
     public static List<MultiplayerGame> getUnfinishedMultiplayerGamesCreatedBy(int userID) {
         Connection conn = DB.getConnection();
         PreparedStatement stmt = DB.createPreparedStatement(conn, UNFINISHED_MULTIPLAYER_GAMES_BY_USER_QUERY, DB.getDBV(userID));
+        ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+        return getGamesFromRS(rs, conn, stmt);
+    }
+
+    public static List<MultiplayerGame> getFinishedMultiplayerGamesWithPlayersCreatedBy(int userID) {
+        Connection conn = DB.getConnection();
+        PreparedStatement stmt = DB.createPreparedStatement(conn, FINISHED_MULTIPLAYER_GAMES_BY_USER_QUERY, DB.getDBV(userID));
+        ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+        return getGamesFromRS(rs, conn, stmt);
+    }
+
+    public static List<MultiplayerGame> getMultiplayerSimulationGamesCreatedBy(int userID) {
+        Connection conn = DB.getConnection();
+        PreparedStatement stmt = DB.createPreparedStatement(conn, SIMULATION_MULTIPLAYER_GAMES_BY_USER_QUERY, DB.getDBV(userID));
         ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
         return getGamesFromRS(rs, conn, stmt);
     }

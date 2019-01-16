@@ -35,6 +35,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -60,6 +62,7 @@ public class Test {
 	private int gameId;
 	private String javaFile;
 	private String classFile;
+	private Timestamp timestamp;
 
 	/**
 	 * Identifier of the class this test is created for.
@@ -161,6 +164,18 @@ public class Test {
 		return gameId;
 	}
 
+	public void setGameId(int gameId) {
+		this.gameId = gameId;
+	}
+
+	public Timestamp getTimestamp() {
+		return timestamp;
+	}
+
+	public void setTimestamp(Timestamp timestamp) {
+		this.timestamp = timestamp;
+	}
+
 	public int getMutantsKilled() {
 		return mutantsKilled;
 	}
@@ -249,16 +264,24 @@ public class Test {
 
 
 	@Deprecated
-	public boolean insert() {
-		String jFileDB = DatabaseAccess.addSlashes(javaFile);
-		String cFileDB = classFile == null ? null : DatabaseAccess.addSlashes(classFile);
+	public boolean insert(boolean addSlashes) {
+		String jFileDB;
+		String cFileDB;
+		if (addSlashes) {
+			jFileDB = DatabaseAccess.addSlashes(javaFile);
+			cFileDB = classFile == null ? null : DatabaseAccess.addSlashes(classFile);
+		} else {
+			jFileDB = javaFile;
+			cFileDB = classFile == null ? null : classFile;
+		}
 
 		Connection conn = DB.getConnection();
-		String query = "INSERT INTO tests (JavaFile, ClassFile, Game_ID, RoundCreated, Player_ID, Points) VALUES (?, ?, ?, ?, ?, ?);";
+		String query = "INSERT INTO tests (JavaFile, ClassFile, Game_ID, Timestamp, RoundCreated, Player_ID, Points) VALUES (?, ?, ?, ?, ?, ?, ?);";
 		DatabaseValue[] valueList = new DatabaseValue[]{
 				DB.getDBV(jFileDB),
 				DB.getDBV(cFileDB),
 				DB.getDBV(gameId),
+				DB.getDBV(timestamp),
 				DB.getDBV(roundCreated),
 				DB.getDBV(playerId),
 				DB.getDBV(score)

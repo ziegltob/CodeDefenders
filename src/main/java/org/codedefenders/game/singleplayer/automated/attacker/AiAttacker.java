@@ -18,19 +18,18 @@
  */
 package org.codedefenders.game.singleplayer.automated.attacker;
 
+import com.sun.corba.se.impl.orb.DataCollectorBase;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.codedefenders.execution.AntRunner;
+import org.codedefenders.execution.ExecutorPool;
 import org.codedefenders.execution.TargetExecution;
-import org.codedefenders.game.AbstractGame;
-import org.codedefenders.game.GameClass;
-import org.codedefenders.game.Role;
+import org.codedefenders.game.*;
 import org.codedefenders.execution.MutationTester;
 import org.codedefenders.game.duel.DuelGame;
 import org.codedefenders.game.singleplayer.AiPlayer;
 import org.codedefenders.game.singleplayer.NoDummyGameException;
 import org.codedefenders.game.singleplayer.PrepareAI;
 import org.codedefenders.database.DatabaseAccess;
-import org.codedefenders.game.Mutant;
 import org.codedefenders.model.Event;
 import org.codedefenders.model.EventStatus;
 import org.codedefenders.model.EventType;
@@ -38,12 +37,14 @@ import org.codedefenders.servlets.games.GameManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.xml.crypto.Data;
 import java.io.File;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.codedefenders.util.Constants.MUTANT_COMPILED_MESSAGE;
 import static org.codedefenders.util.Constants.MUTANT_UNCOMPILABLE_MESSAGE;
@@ -59,8 +60,8 @@ public class AiAttacker extends AiPlayer {
 
 	public static final int ID = 1;
 
-	public AiAttacker(AbstractGame g) {
-		super(g);
+	public AiAttacker(int gameId) {
+		super(DatabaseAccess.getMultiplayerGame(gameId));
 		role = Role.ATTACKER;
 	}
 
@@ -70,6 +71,7 @@ public class AiAttacker extends AiPlayer {
 	 */
 	public boolean turnHard() {
 		//Choose a mutant which is killed by few generated tests.
+		multiplayerGame = DatabaseAccess.getMultiplayerGame(game.getId());
 		return runTurn(GenerationMethod.KILLCOUNT);
 	}
 
@@ -79,6 +81,17 @@ public class AiAttacker extends AiPlayer {
 	 */
 	public boolean turnEasy() {
 		//Choose a random mutant.
+		multiplayerGame = DatabaseAccess.getMultiplayerGame(game.getId());
+		if (multiplayerGame.getState() == GameState.FINISHED) {
+			if (DatabaseAccess.getJoinedMultiplayerGamesForUser(AiAttacker.ID).stream()
+					.filter(joinedGames -> joinedGames.getId() == multiplayerGame.getId())
+					.findFirst().isPresent()) {
+				int aiAttackerPlayerId = IntStream.of(multiplayerGame.getAttackerIds())
+						.filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiAttacker.ID).findFirst().getAsInt();
+				ExecutorPool.getInstanceOf().cancelTask(aiAttackerPlayerId, true);
+				return false;
+			}
+		}
 		return runTurn(GenerationMethod.RANDOM);
 	}
 
@@ -90,7 +103,6 @@ public class AiAttacker extends AiPlayer {
 	protected boolean runTurn(GenerationMethod strat) {
 		try {
 			int mNum = selectMutant(strat);
-			System.out.println("lolaa");
 			useMutantFromSuite(mNum);
 		} catch (NoMutantsException e) {
 			//No more unused mutants remain,
@@ -117,7 +129,6 @@ public class AiAttacker extends AiPlayer {
 
         candidateMutants.stream().forEach(mutant -> System.out.println("candidatelist:" + mutant.getId()));
         if(candidateMutants.isEmpty()) {
-			System.out.println("candidatemutantlist emptpty leider");
 			throw new NoMutantsException("No unused generated mutants remain.");
 		}
 
@@ -188,7 +199,7 @@ public class AiAttacker extends AiPlayer {
 		String cFile = origM.getClassFile();
 		int playerId = DatabaseAccess.getPlayerIdForMultiplayerGame(ID, game.getId());
 		Mutant m = new Mutant(game.getId(), jFile, cFile, true, playerId);
-		m.insert();
+		m.insert(false);
 		m.update();
 		TargetExecution newExec = new TargetExecution(0, m.getId(), TargetExecution.Target.COMPILE_MUTANT, "SUCCESS", null);
 		newExec.insert();

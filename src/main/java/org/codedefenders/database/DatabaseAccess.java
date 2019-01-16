@@ -572,7 +572,7 @@ public class DatabaseAccess {
 
 	public static List<MultiplayerGame> getMultiplayerGamesForUser(int userId) {
 		String query = "SELECT DISTINCT m.* FROM games AS m LEFT JOIN players AS p ON p.Game_ID=m.ID  AND p.Active=TRUE" +
-				" WHERE m.Mode = 'PARTY' AND (p.User_ID=? OR m.Creator_ID=?) AND m.State != 'FINISHED';";
+				" WHERE m.Mode = 'PARTY' AND (p.User_ID=? OR m.Creator_ID=?) AND m.State != 'FINISHED' AND m.IsSimulationGame = 0;";
 		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(userId),
 				DB.getDBV(userId)};
 		Connection conn = DB.getConnection();
@@ -604,6 +604,29 @@ public class DatabaseAccess {
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return getMultiplayerGames(stmt, conn);
+	}
+
+	public static Role getRoleOfPlayer(int playerId) {
+		Role role = Role.NONE;
+		String query = "SELECT * FROM players WHERE ID = ?;";
+		Connection conn = DB.getConnection();
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(playerId));
+
+		try {
+			ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+			while (rs.next()) {
+				try {
+					role = Role.valueOf(rs.getString("Role"));
+				} catch (NullPointerException | SQLException e) {
+					logger.info("Failed to retrieve role for player {}.", playerId);
+				}
+			}
+		} catch (SQLException e) {
+			logger.error("SQLException while parsing result set for statement\n\t" + query, stmt);
+		} finally {
+			DB.cleanup(conn, stmt);
+		}
+		return role;
 	}
 
 	public static Role getRole(int userId, int gameId) {
@@ -726,6 +749,16 @@ public class DatabaseAccess {
 			DB.cleanup(conn, stmt);
 		}
 		return gameList;
+	}
+
+
+	public static List<Mutant> getMutantsForGameWithoutOnePlayer(int gameId, int playerId) {
+		String query = "SELECT * FROM mutants WHERE Game_ID=? AND Player_ID!=?;";
+		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
+				DB.getDBV(playerId)};
+		Connection conn = DB.getConnection();
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
+		return getMutants(stmt, conn);
 	}
 
 	public static List<Mutant> getMutantsForGame(int gid) {
@@ -935,6 +968,15 @@ public class DatabaseAccess {
 		return getTests(stmt, conn);
 	}
 
+	public static List<Test> getTestsForGameWithoutOnePlayer(int gameId, int playerId) {
+		String query = "SELECT * FROM tests WHERE Game_ID=? AND Player_ID!=?;";
+		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
+				DB.getDBV(playerId)};
+		Connection conn = DB.getConnection();
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
+		return getTests(stmt, conn);
+	}
+
 	public static Test getTestForId(int tid) {
 		String query = "SELECT * FROM tests WHERE Test_ID=?;";
 		Connection conn = DB.getConnection();
@@ -1124,6 +1166,7 @@ public class DatabaseAccess {
 						rs.getInt("RoundCreated"), rs.getInt("MutantsKilled"), rs.getInt("Player_ID"),
 						covered, uncovered, rs.getInt("Points"));
 				newTest.setScore(rs.getInt("Points"));
+				newTest.setTimestamp(rs.getTimestamp("Timestamp"));
 				testList.add(newTest);
 			}
 		} catch (SQLException se) {
@@ -1147,6 +1190,7 @@ public class DatabaseAccess {
 						rs.getBoolean("Alive"), Mutant.Equivalence.valueOf(rs.getString("Equivalent")),
 						rs.getInt("RoundCreated"), rs.getInt("RoundKilled"), rs.getInt("Player_ID"));
 				newMutant.setScore(rs.getInt("Points"));
+				newMutant.setTimestamp(rs.getTimestamp("Timestamp"));
 
 				try {
 					String username = rs.getString("users.Username");

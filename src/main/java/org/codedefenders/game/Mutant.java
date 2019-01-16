@@ -40,6 +40,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.Timestamp;
 import java.util.*;
 
 import difflib.Chunk;
@@ -67,6 +68,7 @@ public class Mutant implements Serializable {
 
     private String creatorName;
 	private int creatorId;
+	private Timestamp timestamp;
 
 	private boolean alive = true;
 
@@ -178,6 +180,18 @@ public class Mutant implements Serializable {
 
 	public int getGameId() {
 		return gameId;
+	}
+
+	public void setGameId(int gameId) {
+		this.gameId = gameId;
+	}
+
+	public Timestamp getTimestamp() {
+		return timestamp;
+	}
+
+	public void setTimestamp(Timestamp timestamp) {
+		this.timestamp = timestamp;
 	}
 
 	public Equivalence getEquivalent() {
@@ -442,17 +456,25 @@ public class Mutant implements Serializable {
 	// Default values for Equivalent (ASSUMED_NO), Alive(1), RoundKilled(NULL) are assigned.
 	// Currently Mutant ID isnt set yet after insertion, if Mutant needs to be used straight away it needs a similar insert method to MultiplayerGame.
 	@Deprecated
-	public boolean insert() {
+	public boolean insert(boolean addSlashes) {
 		logger.info("Inserting mutant");
 		Connection conn = DB.getConnection();
-		String jFileDB = DatabaseAccess.addSlashes(javaFile);
-		String cFileDB = classFile == null ? null : DatabaseAccess.addSlashes(classFile);
-		String query = "INSERT INTO mutants (JavaFile, ClassFile, Game_ID, RoundCreated, Alive, Player_ID, Points, MD5)" +
-				" VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+		String jFileDB;
+		String cFileDB;
+		if (addSlashes) {
+			jFileDB = DatabaseAccess.addSlashes(javaFile);
+			cFileDB = classFile == null ? null : DatabaseAccess.addSlashes(classFile);
+		} else {
+			jFileDB = javaFile;
+			cFileDB = classFile == null ? null : classFile;
+		}
+		String query = "INSERT INTO mutants (JavaFile, ClassFile, Game_ID, RoundCreated, Timestamp, Alive, Player_ID, Points, MD5)" +
+				" VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
 		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(jFileDB),
 				DB.getDBV(cFileDB),
 				DB.getDBV(gameId),
 				DB.getDBV(roundCreated),
+				DB.getDBV(timestamp),
 				DB.getDBV(sqlAlive()),
 				DB.getDBV(playerId),
 				DB.getDBV(score),

@@ -79,14 +79,14 @@ public final class ExecutorPool {
      * Pauses an Ai-Player that is already in a game. We can't remove him completely from a game.
      * @param playerId
      */
-    public synchronized void cancelTask(int playerId) {
+    public synchronized void cancelTask(int playerId, boolean isActive) {
         System.out.println("cancelTask:" + playerId);
         System.out.println("cancelTaskkeycontained:" + scheduledTasks.containsKey(playerId));
         if (scheduledTasks.containsKey(playerId)) {
             if (scheduledTasks.get(playerId).cancel(false)) {
                 scheduledTasks.remove(playerId);
                 System.out.println("setplayeractive db"+ playerId);
-                DatabaseAccess.setPlayerIsActive(playerId, false);
+                DatabaseAccess.setPlayerIsActive(playerId, isActive);
             }
         }
     }

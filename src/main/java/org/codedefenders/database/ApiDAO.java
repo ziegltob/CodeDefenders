@@ -91,7 +91,7 @@ public class ApiDAO {
         ")",
         "AS nr_games ON users.User_ID = nr_games.User_ID",
 
-        "WHERE users.User_ID > 2;");
+        "WHERE users.User_ID > 0;");
 
     private static final String GET_ANALYTICS_CLASS_DATA_QUERY = String.join("\n",
         "SELECT classes.Class_ID                                AS ID,",

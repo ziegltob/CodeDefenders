@@ -23,12 +23,12 @@ public class CheckAiMoveThread implements Runnable {
     public void run() {
         if (this.roleToCheckFor == Role.DEFENDER) {
             System.out.println("RUNNING DEFENDER");
-            AiDefender defender = new AiDefender(game);
+            AiDefender defender = new AiDefender(game.getId());
             // defender.turnEasy();
             defender.turnHard();
         } else if (this.roleToCheckFor == Role.ATTACKER) {
-            System.out.println("RUNNINT ATTACKER");
-            AiAttacker attacker = new AiAttacker(game);
+            System.out.println("RUNNING ATTACKER");
+            AiAttacker attacker = new AiAttacker(game.getId());
             attacker.turnEasy();
         }
     }

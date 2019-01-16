@@ -277,8 +277,8 @@ public class RunnerTest {
 				Mutant.Equivalence.ASSUMED_NO, 1, 99, pid);
 		Mutant mutant2 = new Mutant(100, multiplayerGame.getId(), "TEST_J_FILE2", "TEST_C_FILE2", false,
 				Mutant.Equivalence.ASSUMED_YES, 2, 2, pid);
-		assertTrue(mutant1.insert());
-		assertTrue(mutant2.insert());
+		assertTrue(mutant1.insert(true));
+		assertTrue(mutant2.insert(true));
 		Mutant[] ml = { mutant1, mutant2 };
 		assertTrue(Arrays.equals(DatabaseAccess.getMutantsForPlayer(pid).toArray(), ml));
 		assertTrue(Arrays.equals(DatabaseAccess.getMutantsForGame(multiplayerGame.getId()).toArray(), ml));
@@ -304,7 +304,7 @@ public class RunnerTest {
 		Mutant mutant1 = new Mutant(99, multiplayerGame.getId(), "TEST_J_FILE1", "TEST_C_FILE1", true,
 				Mutant.Equivalence.ASSUMED_NO, 1, 99, pid);
 
-		assertTrue(mutant1.insert());
+		assertTrue(mutant1.insert(true));
 
 		assertTrue(mutant1.kill(Equivalence.ASSUMED_NO));
 		//
@@ -332,7 +332,7 @@ public class RunnerTest {
 		Mutant mutant1 = new Mutant(99, multiplayerGame.getId(), "TEST_J_FILE1", "TEST_C_FILE1", true,
 				Mutant.Equivalence.ASSUMED_NO, 1, 99, pid);
 
-		assertTrue(mutant1.insert());
+		assertTrue(mutant1.insert(true));
 		// Kill the mutant
 		assertTrue(mutant1.kill(Equivalence.ASSUMED_NO));
 		int score = mutant1.getScore();
@@ -363,7 +363,7 @@ public class RunnerTest {
 		test = new org.codedefenders.game.Test(99, multiplayerGame.getId(), "TEST_J_FILE", "TEST_C_FILE", 1, 10, pid);
 		test.setPlayerId(pid);
 
-		assertTrue(test.insert());
+		assertTrue(test.insert(true));
 		org.codedefenders.game.Test testFromDB = DatabaseAccess.getTestForId(test.getId());
 		assertEquals(testFromDB.getJavaFile(), test.getJavaFile());
 		assertEquals(testFromDB.getClassFile(), test.getClassFile());
@@ -416,7 +416,7 @@ public class RunnerTest {
 		test = new org.codedefenders.game.Test(99, multiplayerGame.getId(), "TEST_J_FILE", "TEST_C_FILE", 1, 10,
 				pidDefender);
 		test.setPlayerId(pidDefender);
-		assumeTrue(test.insert());
+		assumeTrue(test.insert(true));
 		LineCoverage lc = new LineCoverage();
 		test.setLineCoverage(lc);
 		test.setScore(17);
@@ -427,7 +427,7 @@ public class RunnerTest {
 		int pidAttacker = DatabaseAccess.getPlayerIdForMultiplayerGame(user1.getId(), multiplayerGame.getId());
 		Mutant mutant1 = new Mutant(999, multiplayerGame.getId(), "TEST_J_FILE1", "TEST_C_FILE1", true,
 				Mutant.Equivalence.ASSUMED_NO, 1, 99, pidAttacker);
-		assertTrue(mutant1.insert());
+		assertTrue(mutant1.insert(true));
 
 		// Leave the ID in the constructor
 		TargetExecution te = new TargetExecution(1, test.getId(), mutant1.getId(),

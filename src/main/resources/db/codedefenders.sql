@@ -132,6 +132,7 @@ CREATE TABLE `games` (
   `Mode` enum('SINGLE','DUEL','PARTY','UTESTING') NOT NULL DEFAULT 'DUEL',
   `RequiresValidation` TINYINT(1) DEFAULT '0' NOT NULL,
   `IsAIDummyGame` TINYINT(1) DEFAULT '0' NOT NULL,
+  `IsSimulationGame` TINYINT(1) DEFAULT '0' NOT NULL,
   `HasKillMap` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`ID`),
   KEY `fk_creatorId_idx` (`Creator_ID`),

@@ -21,6 +21,7 @@
 <%@ page import="java.util.stream.IntStream" %>
 <%@ page import="org.codedefenders.game.singleplayer.automated.defender.AiDefender" %>
 <%@ page import="org.codedefenders.game.singleplayer.automated.attacker.AiAttacker" %>
+<%@ page import="javax.xml.crypto.Data" %>
 <% { %>
 
 <%-- Set request attributes for the components. --%>
@@ -75,33 +76,57 @@
 		<input type="hidden" name="formType" value="startGame">
 		<input type="hidden" name="mpGameID" value="<%= game.getId() %>" />
 	</form>
-	<form id="adminAddDefender" action="<%=request.getContextPath() + "/" + game.getClass().getSimpleName().toLowerCase()%>" method="post" style="display: inline-block;">
-		<% if (!IntStream.of(game.getDefenderIds()).anyMatch(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiDefender.ID)) { %>
+	<form id="adminAddDefender"
+		  action="<%=request.getContextPath() + "/" + game.getClass().getSimpleName().toLowerCase()%>" method="post"
+		  style="display: inline-block;">
+		<% int aiDefPlayerId = IntStream.of(game.getDefenderIds()).filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiDefender.ID).findAny().orElse(0);
+			boolean isAiDefActive = DatabaseAccess.getPlayerIsActive(aiDefPlayerId);
+			boolean aiDefJoinedGame = DatabaseAccess.getJoinedMultiplayerGamesForUser(AiDefender.ID).stream()
+					.filter(joinedGames -> joinedGames.getId() == game.getId())
+					.findFirst().isPresent();
+			if (!aiDefJoinedGame) { %>
 		<button type="submit" class="btn btn-primary btn-game" id="addDefender" form="adminAddDefender">
+			Add AI-Defender
+		</button>
+		<input type="hidden" name="formType" value="addDefender">
+		<% } else if (!isAiDefActive && aiDefJoinedGame) { %>
+		<button type="submit" class="btn btn-primary btn-game" id="activateDefender" form="adminAddDefender">
 			Activate AI-Defender
 		</button>
 		<input type="hidden" name="formType" value="addDefender">
-		<% } else { %>
+		<% } else if (isAiDefActive && aiDefJoinedGame) { %>
 		<button type="submit" class="btn btn-primary btn-game" id="pauseAiDefender" form="adminAddDefender">
 			Pause AI-Defender
 		</button>
 		<input type="hidden" name="formType" value="pauseDefender">
 		<% } %>
-		<input type="hidden" name="mpGameID" value="<%= game.getId() %>" />
+		<input type="hidden" name="mpGameID" value="<%= game.getId() %>"/>
 	</form>
-	<form id="adminAddAttacker" action="<%=request.getContextPath() + "/" + game.getClass().getSimpleName().toLowerCase()%>" method="post" style="display: inline-block;">
-        <% if (!IntStream.of(game.getAttackerIds()).anyMatch(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiAttacker.ID)) { %>
-        <button type="submit" class="btn btn-primary btn-game" id="addAttacker" form="adminAddAttacker">
-            Activate AI-Attacker
-        </button>
-        <input type="hidden" name="formType" value="addAttacker">
-        <% } else { %>
-        <button type="submit" class="btn btn-primary btn-game" id="pauseAiAttacker" form="adminAddAttacker">
-            Pause AI-Attacker
-        </button>
-        <input type="hidden" name="formType" value="pauseAttacker">
-        <% } %>
-		<input type="hidden" name="mpGameID" value="<%= game.getId() %>" />
+	<form id="adminAddAttacker"
+		  action="<%=request.getContextPath() + "/" + game.getClass().getSimpleName().toLowerCase()%>" method="post"
+		  style="display: inline-block;">
+		<% int aiAttPlayerId = IntStream.of(game.getAttackerIds()).filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiAttacker.ID).findAny().orElse(0);
+			boolean isAiAttActive = DatabaseAccess.getPlayerIsActive(aiAttPlayerId);
+			boolean aiAttJoinedGame = DatabaseAccess.getJoinedMultiplayerGamesForUser(AiAttacker.ID).stream()
+					.filter(joinedGames -> joinedGames.getId() == game.getId())
+					.findFirst().isPresent();
+			if (!aiAttJoinedGame) { %>
+		<button type="submit" class="btn btn-primary btn-game" id="addAttacker" form="adminAddAttacker">
+			Add AI-Attacker
+		</button>
+		<input type="hidden" name="formType" value="addAttacker">
+		<% } else if (!isAiAttActive && aiAttJoinedGame) { %>
+		<button type="submit" class="btn btn-primary btn-game" id="activateAttacker" form="adminAddAttacker">
+			Activate AI-Attacker
+		</button>
+		<input type="hidden" name="formType" value="addAttacker">
+		<% } else if (isAiAttActive && aiAttJoinedGame) { %>
+		<button type="submit" class="btn btn-primary btn-game" id="pauseAiAttacker" form="adminAddAttacker">
+			Pause AI-Attacker
+		</button>
+		<input type="hidden" name="formType" value="pauseAttacker">
+		<% } %>
+		<input type="hidden" name="mpGameID" value="<%= game.getId() %>"/>
 	</form>
 </div>
 

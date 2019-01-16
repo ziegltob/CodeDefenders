@@ -52,6 +52,7 @@ import javax.naming.InitialContext;
 import javax.naming.NameClassPair;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
+import javax.xml.crypto.Data;
 
 import static org.codedefenders.util.Constants.MUTANT_ALIVE_1_MESSAGE;
 import static org.codedefenders.util.Constants.MUTANT_ALIVE_N_MESSAGE;
@@ -443,8 +444,55 @@ public class MutationTester {
         notif.insert();
     }
 
-    public static boolean testOnMutant(Test test, Mutant mutant) {
-		return testVsMutant(test, mutant);
+	public static boolean testOnMutant(MultiplayerGame game, Test test, Mutant mutant) {
+		boolean killed = testVsMutant(test, mutant);
+		List<Mutant> killedMutants = new ArrayList<Mutant>();
+		if (killed) {
+			killedMutants.add(mutant);
+		} else {
+			// mutant is still alive
+			ArrayList<Test> missedTests = new ArrayList<Test>();
+
+			for (int lm : mutant.getLines()) {
+				boolean found = false;
+				for (int lc : test.getLineCoverage().getLinesCovered()) {
+					if (lc == lm) {
+						found = true;
+						missedTests.add(test);
+					}
+				}
+				if (found) {
+					break;
+				}
+			}
+			// mutant.setScore(Scorer.score(game, mutant, missedTests));
+			// mutant.update();
+			mutant.incrementScore(Scorer.score(game, mutant, missedTests));
+		}
+
+		// test.setScore(Scorer.score(game, test, killedMutants));
+		// test.update();
+		test.incrementScore(Scorer.score(game, test, killedMutants));
+
+		 /*if (killed == 0)
+			if (mutants.size() == 0)
+			messages.add(TEST_SUBMITTED_MESSAGE);
+			else
+					messages.add(TEST_KILLED_ZERO_MESSAGE);
+		else {
+		Event notif = new Event(-1, game.getId(), u.getId(),
+				u.getUsername() + "&#39;s test kills " + killed + " " + "mutants.",
+				EventType.DEFENDER_KILLED_MUTANT, EventStatus.GAME, new Timestamp(System.currentTimeMillis()));
+		notif.insert();
+		if (killed == 1) {
+			if (mutants.size() == 1)
+				messages.add(TEST_KILLED_LAST_MESSAGE);
+			else
+				messages.add(TEST_KILLED_ONE_MESSAGE);
+		} else {
+			messages.add(String.format(TEST_KILLED_N_MESSAGE, killed));
+		}*/
+		return killed;
 	}
 
     /**
@@ -455,27 +503,33 @@ public class MutationTester {
      * @return
      */
     private static boolean testVsMutant(Test test, Mutant mutant) {
-        if (DatabaseAccess.getTargetExecutionForPair(test.getId(), mutant.getId()) == null) {
+		TargetExecution execution = DatabaseAccess.getTargetExecutionForPair(test.getId(), mutant.getId());
+        if (execution == null) {
             // Run the test against the mutant and get the result
             TargetExecution executedTarget = AntRunner.testMutant(mutant, test);
+            return didTestKillMutant(executedTarget, mutant, test);
+		} else {
+			// this is for the ai trying out multiple tests on a mutant to check if they kill the mutant
+			logger.info("There is already an execution result for (m: {},t: {})", mutant.getId(), test.getId());
+			return didTestKillMutant(execution, mutant, test);
+		}
+	}
 
-			// If the test did NOT pass, the mutant was detected and should be killed.
-			if (executedTarget.status.equals("FAIL") || executedTarget.status.equals("ERROR")) {
-				if (mutant.kill(ASSUMED_NO)) {
-					logger.info("Test {} kills Mutant {}", test.getId(), mutant.getId());
-					test.killMutant();
-					return true;
-				} else {
-					logger.info("Test {} would have killed Mutant {}, but Mutant {} was alredy dead!", test.getId(), mutant.getId(), mutant.getId());
-					return false;
-				}
+	private static boolean didTestKillMutant(TargetExecution executedTarget, Mutant mutant, Test test) {
+		// If the test did NOT pass, the mutant was detected and should be killed.
+		if (executedTarget.status.equals("FAIL") || executedTarget.status.equals("ERROR")) {
+			if (mutant.kill(ASSUMED_NO)) {
+				logger.info("Test {} kills Mutant {}", test.getId(), mutant.getId());
+				test.killMutant();
+				return true;
 			} else {
-				logger.debug("Test {} did not kill Mutant {}", test.getId(), mutant.getId());
+				logger.info("Test {} would have killed Mutant {}, but Mutant {} was alredy dead!", test.getId(), mutant.getId(), mutant.getId());
+				return false;
 			}
 		} else {
-			logger.error("No execution result found for (m: {},t: {})", mutant.getId(), test.getId());
+			logger.debug("Test {} did not kill Mutant {}", test.getId(), mutant.getId());
+			return false;
 		}
-		return false;
 	}
 
     /**

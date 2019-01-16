@@ -210,10 +210,18 @@ public class MultiplayerGame extends AbstractGame {
 		return victor;
 	}
 
+	public void setStartDateTime(Date startDateTime) {
+		this.startDateTime = startDateTime.getTime();
+	}
+
 	public String getStartDateTime() {
 		Date date = new Date(startDateTime);
 		Format format = new SimpleDateFormat("yy/MM/dd HH:mm");
 		return format.format(date);
+	}
+
+	public void setFinishDateTime(Date finishDateTime) {
+		this.finishDateTime = finishDateTime.getTime();
 	}
 
 	public String getFinishDateTime() {
@@ -296,8 +304,8 @@ public class MultiplayerGame extends AbstractGame {
 		String query = "INSERT INTO games " +
 				"(Class_ID, Level, Prize, Defender_Value, Attacker_Value, Coverage_Goal, Mutant_Goal, Creator_ID, " +
 				"Attackers_Needed, Defenders_Needed, Attackers_Limit, Defenders_Limit, Start_Time, Finish_Time, State, Mode," +
-				"MaxAssertionsPerTest, ChatEnabled, MutantValidator, MarkUncovered) VALUES " +
-				"(?, ?, ?, ?, ?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, 'PARTY',?,?,?,?);";
+				"MaxAssertionsPerTest, ChatEnabled, MutantValidator, MarkUncovered, IsSimulationGame) VALUES " +
+				"(?, ?, ?, ?, ?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, 'PARTY',?,?,?,?,?);";
 		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(classId), DB.getDBV(level.name()),
 				DB.getDBV(prize), DB.getDBV(defenderValue), DB.getDBV(attackerValue),
 				DB.getDBV(lineCoverage), DB.getDBV(mutantCoverage), DB.getDBV(creatorId),
@@ -305,7 +313,7 @@ public class MultiplayerGame extends AbstractGame {
 				DB.getDBV(defenderLimit), DB.getDBV(new Timestamp(startDateTime)),
 				DB.getDBV(new Timestamp(finishDateTime)), DB.getDBV(state.name()),
 				DB.getDBV(maxAssertionsPerTest), DB.getDBV(chatEnabled), DB.getDBV(mutantValidatorLevel.name()),
-				DB.getDBV(markUncovered)};
+				DB.getDBV(markUncovered), DB.getDBV(isSimulationGame)};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		int res = DB.executeUpdateGetKeys(stmt, conn);

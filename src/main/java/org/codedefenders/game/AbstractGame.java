@@ -49,6 +49,7 @@ public abstract class AbstractGame {
 	protected GameLevel level;
 	protected GameMode mode;
 	protected boolean isAIDummyGame;
+	protected boolean isSimulationGame;
 
 	protected ArrayList<Event> events;
 	protected List<Mutant> mutants;
@@ -112,6 +113,10 @@ public abstract class AbstractGame {
 	public boolean isAIDummyGame() { return isAIDummyGame; }
 
 	public void setAIDummyGame(boolean isAIDummyGame) {	this.isAIDummyGame = isAIDummyGame; }
+
+	public boolean isSimulationGame() { return isSimulationGame; }
+
+	public void setSimulationGame(boolean isSimulationGame) {	this.isSimulationGame = isSimulationGame; }
 
 	public List<Test> getTests() {
 		return getTests(false);

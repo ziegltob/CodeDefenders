@@ -18,7 +18,9 @@
  */
 package org.codedefenders.game.singleplayer.automated.defender;
 
+import com.sun.corba.se.impl.orb.DataCollectorBase;
 import org.codedefenders.execution.AntRunner;
+import org.codedefenders.execution.ExecutorPool;
 import org.codedefenders.game.*;
 import org.codedefenders.execution.MutationTester;
 import org.codedefenders.game.duel.DuelGame;
@@ -31,9 +33,11 @@ import org.codedefenders.execution.TargetExecution;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.xml.crypto.Data;
 import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * @author Ben Clegg
@@ -45,18 +49,30 @@ public class AiDefender extends AiPlayer {
 
 	public static final int ID = 2;
 
-	public AiDefender(AbstractGame g) {
-		super(g);
+	public AiDefender(int gameId) {
+		super(DatabaseAccess.getMultiplayerGame(gameId));
 		role = Role.DEFENDER;
 	}
 	public boolean turnHard() {
 		//Choose test which kills a high number of generated mutants.
+        multiplayerGame = DatabaseAccess.getMultiplayerGame(game.getId());
+        if (multiplayerGame.getState() == GameState.FINISHED) {
+			if (DatabaseAccess.getJoinedMultiplayerGamesForUser(AiDefender.ID).stream()
+					.filter(joinedGames -> joinedGames.getId() == multiplayerGame.getId())
+					.findFirst().isPresent()) {
+				int aiDefenderPlayerId = IntStream.of(multiplayerGame.getDefenderIds())
+						.filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiDefender.ID).findFirst().getAsInt();
+				ExecutorPool.getInstanceOf().cancelTask(aiDefenderPlayerId, true);
+				return false;
+			}
+		}
 		return runTurn(GenerationMethod.KILLCOUNT);
 	}
 
 	public boolean turnEasy() {
 		//Choose random test.
-		return runTurn(GenerationMethod.RANDOM);
+        multiplayerGame = DatabaseAccess.getMultiplayerGame(game.getId());
+        return runTurn(GenerationMethod.RANDOM);
 	}
 
 	/**
@@ -170,14 +186,18 @@ public class AiDefender extends AiPlayer {
 				}
 			}
 		}
-		// testCoversMutants.entrySet().stream().filter(entry -> entry.getValue().size());
+		// mutantCoveredByTests.entrySet().stream().filter(entry -> entry.getValue().size());
 
 		// brauche für einen mutanten alle tests die ihn covern
 		int bestTestId;
 		for (Mutant aliveMutant : aliveMutants) {
 			if (mutantCoveredByTests.containsKey(aliveMutant.getId())) {
 				for (Test test : mutantCoveredByTests.get(aliveMutant.getId())) {
-					if (MutationTester.testOnMutant(test, aliveMutant)) {
+					// defender score not getting updated bugira
+                    boolean takeTest = MutationTester.testOnMutant(multiplayerGame, test, aliveMutant);
+					System.out.println("takeTEST: " + takeTest);
+					if (takeTest) {
+						System.out.println("should actually exit on kill");
 						bestTestId = test.getId();
 						return bestTestId;
 					}
@@ -216,15 +236,16 @@ public class AiDefender extends AiPlayer {
 			String cFile = origTest.getClassFile();
 			int playerId = DatabaseAccess.getPlayerIdForMultiplayerGame(ID, game.getId());
 			Test t = new Test(game.getId(), jFile, cFile, playerId);
-			t.insert();
+			System.out.println("jfile of t " + t.getJavaFile());
+			t.insert(false);
 			t.update();
 			TargetExecution newExec = new TargetExecution(t.getId(), 0, TargetExecution.Target.COMPILE_TEST, "SUCCESS", null);
 			newExec.insert();
-			MutationTester.runTestOnAllMutants(game, t, messages);
+			MutationTester.runTestOnAllMultiplayerMutants(multiplayerGame, t, messages);
 			DatabaseAccess.setAiTestAsUsed(origTestNum, game);
 			File dir = new File(origTest.getDirectory());
 			AntRunner.testOriginal(dir, t);
-			game.update();
+			multiplayerGame.update();
 			getMessagesLastTurn();
 		}
 	}
