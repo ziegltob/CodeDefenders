@@ -21,7 +21,6 @@
 <%@ page import="java.util.stream.IntStream" %>
 <%@ page import="org.codedefenders.game.singleplayer.automated.defender.AiDefender" %>
 <%@ page import="org.codedefenders.game.singleplayer.automated.attacker.AiAttacker" %>
-<%@ page import="javax.xml.crypto.Data" %>
 <% { %>
 
 <%-- Set request attributes for the components. --%>

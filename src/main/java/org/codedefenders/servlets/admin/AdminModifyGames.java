@@ -22,21 +22,21 @@ import org.codedefenders.database.AdminDAO;
 import org.codedefenders.database.DatabaseAccess;
 import org.codedefenders.game.*;
 import org.codedefenders.game.multiplayer.MultiplayerGame;
+import org.codedefenders.game.singleplayer.automated.attacker.AiAttacker;
+import org.codedefenders.game.singleplayer.automated.defender.AiDefender;
 import org.codedefenders.servlets.util.Redirect;
 import org.codedefenders.util.Constants;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import javax.xml.crypto.Data;
+
+import static org.codedefenders.util.Constants.DUMMY_DEFENDER_USER_ID;
 
 public class AdminModifyGames extends HttpServlet {
 
@@ -51,14 +51,32 @@ public class AdminModifyGames extends HttpServlet {
     public void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
 
         HttpSession session = request.getSession();
-        // Get their user id from the session.
         ArrayList<String> messages = new ArrayList<String>();
         session.setAttribute("messages", messages);
 
         switch (request.getParameter("formType")) {
 
+            // For now removePlayer actually replaces the player with an AI-Player
             case "removePlayer":
                 removePlayer(request, response, messages);
+                break;
+            case "adminModifyAiDefender":
+                String gameToAddAiDefender = request.getParameter("adminModifyAiDefender");
+                multiplayerGame.setId(Integer.parseInt(gameToAddAiDefender));
+                multiplayerGame = DatabaseAccess.getMultiplayerGame(multiplayerGame.getId());
+                multiplayerGame.addPlayer(AiDefender.ID, Role.DEFENDER);
+                // only set the game as simulation game when a bot is added
+                multiplayerGame.setSimulationGame(true);
+                multiplayerGame.update();
+                break;
+            case "adminModifyAiAttacker":
+                String gameToAddAiAttacker = request.getParameter("adminModifyAiAttacker");
+                multiplayerGame.setId(Integer.parseInt(gameToAddAiAttacker));
+                multiplayerGame = DatabaseAccess.getMultiplayerGame(multiplayerGame.getId());
+                multiplayerGame.addPlayer(AiAttacker.ID, Role.ATTACKER);
+                // only set the game as simulation game when a bot is added
+                multiplayerGame.setSimulationGame(true);
+                multiplayerGame.update();
                 break;
             default:
                 System.err.println("Action not recognised");
@@ -90,17 +108,26 @@ public class AdminModifyGames extends HttpServlet {
         calendar.add(Calendar.DATE, 2);
         multiplayerGame.setFinishDateTime(calendar.getTime());
         multiplayerGame.setState(GameState.ACTIVE);
-        // do this only when a bot is added
+        // do not set this here when the structure of adding ai players to a finnished game is changed
         multiplayerGame.setSimulationGame(true);
+        // maybe take other players instead of the regular ones because this will fake statistics
+        Arrays.stream(multiplayerGame.getUserIds(Role.DEFENDER))
+                .forEach(id -> multiplayerGame.addPlayer(id, Role.DEFENDER));
+        Arrays.stream(multiplayerGame.getUserIds(Role.ATTACKER))
+                .forEach(id -> multiplayerGame.addPlayer(id, Role.ATTACKER));
+
         multiplayerGame.insert();
+
         List<Test> testsInGame = new ArrayList<>();
         List<Mutant> mutantsInGame = new ArrayList<>();
         if (playersRole == Role.ATTACKER) {
             testsInGame = DatabaseAccess.getTestsForGame(gameId);
             mutantsInGame = DatabaseAccess.getMutantsForGameWithoutOnePlayer(gameId, playerIdNotToCopy);
+            multiplayerGame.addPlayer(AiAttacker.ID, Role.ATTACKER);
         } else if (playersRole == Role.DEFENDER) {
             testsInGame = DatabaseAccess.getTestsForGameWithoutOnePlayer(gameId, playerIdNotToCopy);
             mutantsInGame = DatabaseAccess.getMutantsForGame(gameId);
+            multiplayerGame.addPlayer(AiDefender.ID, Role.DEFENDER);
         }
 
         addTestsAndMutantsToGame(multiplayerGame.getId(), testsInGame, mutantsInGame);
@@ -121,86 +148,4 @@ public class AdminModifyGames extends HttpServlet {
             multiplayerGame.update();
         }
     }
-
-
-    private void startStopGame(HttpServletRequest request, HttpServletResponse response, ArrayList<String> messages) throws IOException {
-        String playerToRemoveIdGameIdString = request.getParameter("activeGameUserRemoveButton");
-        String playerToSwitchIdGameIdString = request.getParameter("activeGameUserSwitchButton");
-        boolean switchUser = playerToSwitchIdGameIdString != null;
-        if (playerToRemoveIdGameIdString != null || playerToSwitchIdGameIdString != null) { // admin is removing user from temp game
-            int playerToRemoveId = Integer.parseInt((switchUser ? playerToSwitchIdGameIdString : playerToRemoveIdGameIdString).split("-")[0]);
-            int gameToRemoveFromId = Integer.parseInt((switchUser ? playerToSwitchIdGameIdString : playerToRemoveIdGameIdString).split("-")[1]);
-            int userId = DatabaseAccess.getUserFromPlayer(playerToRemoveId).getId();
-            if (!deletePlayer(playerToRemoveId, gameToRemoveFromId))
-                messages.add("Deleting player " + playerToRemoveId + " failed! \n Please check the logs!");
-            else if (switchUser) {
-                Role newRole = Role.valueOf(playerToSwitchIdGameIdString.split("-")[2]).equals(Role.ATTACKER)
-                        ? Role.DEFENDER : Role.ATTACKER;
-                multiplayerGame = DatabaseAccess.getMultiplayerGame(gameToRemoveFromId);
-                if (!multiplayerGame.addPlayerForce(userId, newRole))
-                    messages.add("Inserting user " + userId + " failed! \n Please check the logs!");
-            }
-
-        } else {  // admin is starting or stopping selected games
-            String[] selectedGames = request.getParameterValues("selectedGames");
-
-            if (selectedGames == null) {
-                // admin is starting or stopping a single game
-                int gameId = -1;
-                // Get the identifying information required to create a game from the submitted form.
-
-                try {
-                    gameId = Integer.parseInt(request.getParameter("start_stop_btn"));
-                } catch (Exception e) {
-                    messages.add("There was a problem with the form.");
-                    response.sendRedirect(request.getContextPath() + "/admin");
-                    return;
-                }
-
-
-                String errorMessage = "ERROR trying to start or stop game " + String.valueOf(gameId)
-                        + ".\nIf this problem persists, contact your administrator.";
-
-                multiplayerGame = DatabaseAccess.getMultiplayerGame(gameId);
-
-                if (multiplayerGame == null) {
-                    messages.add(errorMessage);
-                } else {
-                    GameState newState = multiplayerGame.getState() == GameState.ACTIVE ? GameState.FINISHED : GameState.ACTIVE;
-                    multiplayerGame.setState(newState);
-                    if (!multiplayerGame.update()) {
-                        messages.add(errorMessage);
-                    }
-                }
-            } else {
-                GameState newState = request.getParameter("games_btn").equals("Start Games") ? GameState.ACTIVE : GameState.FINISHED;
-                for (String gameId : selectedGames) {
-                    multiplayerGame = DatabaseAccess.getMultiplayerGame(Integer.parseInt(gameId));
-                    multiplayerGame.setState(newState);
-                    if (!multiplayerGame.update()) {
-                        messages.add("ERROR trying to start or stop game " + String.valueOf(gameId));
-                    }
-                }
-            }
-        }
-        response.sendRedirect(request.getContextPath() + "/admin/modify");
-    }
-
-    private static boolean deletePlayer(int pid, int gid) {
-        for (Test t : DatabaseAccess.getTestsForGame(gid)) {
-            if (t.getPlayerId() == pid)
-                AdminDAO.deleteTestTargetExecutions(t.getId());
-        }
-        for (Mutant m : DatabaseAccess.getMutantsForGame(gid)) {
-            if (m.getPlayerId() == pid)
-                AdminDAO.deleteMutantTargetExecutions(m.getId());
-        }
-        DatabaseAccess.removePlayerEventsForGame(gid, pid);
-        AdminDAO.deleteAttackerEquivalences(pid);
-        AdminDAO.deleteDefenderEquivalences(pid);
-        AdminDAO.deletePlayerTest(pid);
-        AdminDAO.deletePlayerMutants(pid);
-        return AdminDAO.deletePlayer(pid);
-    }
-
 }

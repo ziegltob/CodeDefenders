@@ -28,10 +28,10 @@
 <%@ page import="java.util.List" %>
 
 <% String pageTitle = null; %>
-<%@ include file="/jsp/header_main.jsp" %>
+<%@ include file="header_main.jsp" %>
 <div class="full-width">
     <% request.setAttribute("adminActivePage", "adminSimulationGames"); %>
-    <%@ include file="/jsp/admin_navigation.jsp" %>
+    <%@ include file="admin_navigation.jsp" %>
 
     <form id="games" action="admin/simulation" method="post">
         <%--<input type="hidden" name="formType" value="startStopGame">--%>
@@ -312,4 +312,4 @@
     </script>
 
 </div>
-<%@ include file="/jsp/footer.jsp" %>
+<%@ include file="footer.jsp" %>

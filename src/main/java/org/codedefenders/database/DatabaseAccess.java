@@ -1119,6 +1119,31 @@ public class DatabaseAccess {
 		return players;
 	}
 
+	public static int[] getUserIdsForMultiplayerGame(int gameId, Role role) {
+		int[] players = new int[0];
+		String query = "SELECT * FROM players WHERE Game_ID = ? AND Role=? AND Active=TRUE;";
+		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
+				DB.getDBV(role.toString())};
+		Connection conn = DB.getConnection();
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
+		try {
+			ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+			List<Integer> atks = new ArrayList<>();
+			while (rs.next()) {
+				atks.add(rs.getInt("User_ID"));
+				players = new int[atks.size()];
+				for (int i = 0; i < atks.size(); i++) {
+					players[i] = atks.get(i);
+				}
+			}
+		} catch (SQLException e) {
+			logger.error("SQLException while parsing result set for statement\n\t" + query, stmt);
+		} finally {
+			DB.cleanup(conn, stmt);
+		}
+		return players;
+	}
+
 	public static int[] getPlayersForMultiplayerGame(int gameId, Role role) {
 		int[] players = new int[0];
 		String query = "SELECT * FROM players WHERE Game_ID = ? AND Role=? AND Active=TRUE;";

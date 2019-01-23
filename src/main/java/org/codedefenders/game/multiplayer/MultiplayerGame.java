@@ -36,6 +36,7 @@ import org.codedefenders.model.User;
 import org.codedefenders.validation.code.CodeValidatorLevel;
 import org.codedefenders.validation.input.CheckDateFormat;
 
+import javax.xml.crypto.Data;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;
@@ -77,7 +78,8 @@ public class MultiplayerGame extends AbstractGame {
 						   int defenderValue, int attackerValue, int defenderLimit,
 						   int attackerLimit, int minDefenders, int minAttackers,
 						   long startDateTime, long finishDateTime, String status, int maxAssertionsPerTest,
-						   boolean chatEnabled, CodeValidatorLevel mutantValidatorLevel, boolean markUncovered) {
+						   boolean chatEnabled, CodeValidatorLevel mutantValidatorLevel,
+						   boolean markUncovered) {
 		this(classId, creatorId, level, lineCoverage, mutantCoverage, prize, defenderValue, attackerValue, defenderLimit, attackerLimit,
 				minDefenders, minAttackers, startDateTime, finishDateTime, status, false, maxAssertionsPerTest,
 				chatEnabled, mutantValidatorLevel, markUncovered);
@@ -111,6 +113,7 @@ public class MultiplayerGame extends AbstractGame {
 		this.chatEnabled = chatEnabled;
 		this.mutantValidatorLevel = mutantValidatorLevel;
 		this.markUncovered = markUncovered;
+		this.isSimulationGame = false;
 	}
 
 	public int getAttackerLimit() {
@@ -238,6 +241,10 @@ public class MultiplayerGame extends AbstractGame {
 		return DatabaseAccess.getPlayersForMultiplayerGame(getId(), Role.ATTACKER);
 	}
 
+	public int[] getUserIds(Role role) {
+		return DatabaseAccess.getUserIdsForMultiplayerGame(getId(), role);
+	}
+
 	public int[] getPlayerIds() {
 		return ArrayUtils.addAll(getDefenderIds(), getAttackerIds());
 	}
@@ -328,10 +335,11 @@ public class MultiplayerGame extends AbstractGame {
 		Connection conn = DB.getConnection();
 		// Get all rows from the database which have the chosen username
 		String query = "UPDATE games SET Class_ID = ?, Level = ?, Prize = ?, Defender_Value=?, Attacker_Value=?," +
-				" Coverage_Goal=?, Mutant_Goal=?, State=? WHERE ID=?";
+				" Coverage_Goal=?, Mutant_Goal=?, State=?, IsSimulationGame=? WHERE ID=?";
 		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(classId), DB.getDBV(level.name()),
 				DB.getDBV(prize), DB.getDBV(defenderValue), DB.getDBV(attackerValue),
-				DB.getDBV(lineCoverage), DB.getDBV(mutantCoverage), DB.getDBV(state.name()), DB.getDBV(id)};
+				DB.getDBV(lineCoverage), DB.getDBV(mutantCoverage),
+                DB.getDBV(state.name()), DB.getDBV(isSimulationGame), DB.getDBV(id)};
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return DB.executeUpdate(stmt, conn);
 	}
