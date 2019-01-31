@@ -391,7 +391,18 @@ VALUES (1, 'Mutator', 'AI_ATTACKER_INACCESSIBLE', 'codedef_mutator@sheffield.ac.
        (2, 'TestGen', 'AI_DEFENDER_INACCESSIBLE', 'codedef_testgen@sheffield.ac.uk'),
        (-1, 'dummy_user', 'DUMMY_USER_INACCESSIBLE', 'user@dummy.com'),
        (3, 'System Attacker', 'DUMMY_ATTACKER_INACCESSIBLE', 'attacker@dummy.com'),
-       (4, 'System Defender', 'DUMMY_DEFENDER_INACCESSIBLE', 'defender@dummy.com');
+       (4, 'System Defender', 'DUMMY_DEFENDER_INACCESSIBLE', 'defender@dummy.com'),
+       -- Dummy users for the simulation of finished games
+       (-2, 'simulation_atk1', 'SIMULATION_USER_INACCESSIBLE', 'simatk1@dummy.com'),
+       (-3, 'simulation_atk2', 'SIMULATION_USER_INACCESSIBLE', 'simatk2@dummy.com'),
+       (-4, 'simulation_atk3', 'SIMULATION_USER_INACCESSIBLE', 'simatk3@dummy.com'),
+       (-5, 'simulation_atk4', 'SIMULATION_USER_INACCESSIBLE', 'simatk4@dummy.com'),
+       (-6, 'simulation_atk5', 'SIMULATION_USER_INACCESSIBLE', 'simatk5@dummy.com'),
+       (-7, 'simulation_def1', 'SIMULATION_USER_INACCESSIBLE', 'simdef1@dummy.com'),
+       (-8, 'simulation_def2', 'SIMULATION_USER_INACCESSIBLE', 'simdef2@dummy.com'),
+       (-9, 'simulation_def3', 'SIMULATION_USER_INACCESSIBLE', 'simdef3@dummy.com'),
+       (-10, 'simulation_def4', 'SIMULATION_USER_INACCESSIBLE', 'simdef14@dummy.com'),
+       (-11, 'simulation_def5', 'SIMULATION_USER_INACCESSIBLE', 'simdef15@dummy.com');
 
 --
 -- Table structure for table `sessions`

@@ -158,11 +158,18 @@
             <th style="border-bottom: 1px solid black"></th>
             <th style="border-bottom: 1px solid black">
                 <form id="adminModifyAiAttacker" action="admin/modify" method="post">
+                    <% boolean aiAtkJoinedGame = DatabaseAccess.getJoinedMultiplayerGamesForUser(AiAttacker.ID).stream()
+                            .filter(joinedGames -> joinedGames.getId() == gameId)
+                            .findFirst().isPresent();
+                        if (!aiAtkJoinedGame) { %>
                     <button class="btn btn-sm" value="<%=gameId%>"
-                            id="<%="add_ai_attacker_to_game_"+gameId%>"
+                            id="<%="add_ai_attacker_to_game_" + gameId%>"
                             name="gameAddAiAttacker">Add Ai-Attacker
                     </button>
                     <input type="hidden" name="formType" value="addAiAttacker">
+                    <% } else { %>
+
+                    <% } %>
                 </form>
                 <br>
                 <form id="adminModifyAiDefender" action="admin/modify" method="post">

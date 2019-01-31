@@ -766,7 +766,8 @@ public class DatabaseAccess {
 				"SELECT * FROM mutants ",
 				"LEFT JOIN players ON players.ID=mutants.Player_ID ",
 				"LEFT JOIN users ON players.User_ID = users.User_ID ",
-				"WHERE mutants.Game_ID=? AND mutants.ClassFile IS NOT NULL;");
+				"WHERE mutants.Game_ID=? AND mutants.ClassFile IS NOT NULL ",
+				"ORDER BY Timestamp;");
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gid));
 		return getMutants(stmt, conn);
@@ -962,7 +963,7 @@ public class DatabaseAccess {
 	}
 
 	public static List<Test> getTestsForGame(int gid) {
-		String query = "SELECT * FROM tests WHERE Game_ID=?;";
+		String query = "SELECT * FROM tests WHERE Game_ID=? ORDER BY Timestamp;";
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gid));
 		return getTests(stmt, conn);
@@ -1146,7 +1147,7 @@ public class DatabaseAccess {
 
 	public static int[] getPlayersForMultiplayerGame(int gameId, Role role) {
 		int[] players = new int[0];
-		String query = "SELECT * FROM players WHERE Game_ID = ? AND Role=? AND Active=TRUE;";
+		String query = "SELECT * FROM players WHERE Game_ID = ? AND Role=? AND Active=TRUE ORDER BY ID ASC;";
 		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
 				DB.getDBV(role.toString())};
 		// Load the MultiplayerGame Data with the provided ID.

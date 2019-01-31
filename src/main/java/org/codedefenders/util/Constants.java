@@ -72,6 +72,9 @@ public class Constants {
 	public static final int DUMMY_ATTACKER_USER_ID = 3;
 	public static final int DUMMY_DEFENDER_USER_ID = 4;
 
+	public static final int[] SIMULATION_ATTACKER_IDS = {-2, -3, -4, -5, -6};
+	public static final int[] SIMULATION_DEFENDER_IDS = {-7, -8, -9, -10, -11};
+
 	//public static String DATA_DIR    = F_SEP + "WEB-INF" + F_SEP + "data";
 	public static final String CUTS_DIR = DATA_DIR + F_SEP + "sources";
 	// dependencies, mutants and tests subdirectories for CUTs

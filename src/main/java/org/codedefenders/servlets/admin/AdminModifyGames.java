@@ -35,6 +35,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import javax.xml.crypto.Data;
 
 import static org.codedefenders.util.Constants.DUMMY_DEFENDER_USER_ID;
 
@@ -95,11 +96,11 @@ public class AdminModifyGames extends HttpServlet {
      */
     private void removePlayer (HttpServletRequest request, HttpServletResponse response, ArrayList<String> messages) throws IOException {
         String gameAndPlayerId = request.getParameter("gameUserRemoveButton");
-        int gameId = Integer.parseInt(gameAndPlayerId.split("-")[1]);
+        int gameToModifyId = Integer.parseInt(gameAndPlayerId.split("-")[1]);
         int playerIdNotToCopy = Integer.parseInt(gameAndPlayerId.split("-")[0]);
         Role playersRole = DatabaseAccess.getRoleOfPlayer(playerIdNotToCopy);
-        System.out.println(gameId + "okokk "+ playerIdNotToCopy);
-        multiplayerGame = DatabaseAccess.getMultiplayerGame(gameId);
+        System.out.println(gameToModifyId + "okokk "+ playerIdNotToCopy);
+        multiplayerGame = DatabaseAccess.getMultiplayerGame(gameToModifyId);
         // setting start and end date for the newly created game
         Date startDate = new Date();
         Calendar calendar = Calendar.getInstance();
@@ -110,42 +111,69 @@ public class AdminModifyGames extends HttpServlet {
         multiplayerGame.setState(GameState.ACTIVE);
         // do not set this here when the structure of adding ai players to a finnished game is changed
         multiplayerGame.setSimulationGame(true);
-        // maybe take other players instead of the regular ones because this will fake statistics
+        /* maybe take other players instead of the regular ones because this will fake statistics
         Arrays.stream(multiplayerGame.getUserIds(Role.DEFENDER))
                 .forEach(id -> multiplayerGame.addPlayer(id, Role.DEFENDER));
         Arrays.stream(multiplayerGame.getUserIds(Role.ATTACKER))
-                .forEach(id -> multiplayerGame.addPlayer(id, Role.ATTACKER));
+                .forEach(id -> multiplayerGame.addPlayer(id, Role.ATTACKER)); */
 
         multiplayerGame.insert();
 
         List<Test> testsInGame = new ArrayList<>();
         List<Mutant> mutantsInGame = new ArrayList<>();
         if (playersRole == Role.ATTACKER) {
-            testsInGame = DatabaseAccess.getTestsForGame(gameId);
-            mutantsInGame = DatabaseAccess.getMutantsForGameWithoutOnePlayer(gameId, playerIdNotToCopy);
+            testsInGame = DatabaseAccess.getTestsForGame(gameToModifyId);
+            mutantsInGame = DatabaseAccess.getMutantsForGameWithoutOnePlayer(gameToModifyId, playerIdNotToCopy);
             multiplayerGame.addPlayer(AiAttacker.ID, Role.ATTACKER);
         } else if (playersRole == Role.DEFENDER) {
-            testsInGame = DatabaseAccess.getTestsForGameWithoutOnePlayer(gameId, playerIdNotToCopy);
-            mutantsInGame = DatabaseAccess.getMutantsForGame(gameId);
+            testsInGame = DatabaseAccess.getTestsForGameWithoutOnePlayer(gameToModifyId, playerIdNotToCopy);
+            mutantsInGame = DatabaseAccess.getMutantsForGame(gameToModifyId);
             multiplayerGame.addPlayer(AiDefender.ID, Role.DEFENDER);
         }
 
-        addTestsAndMutantsToGame(multiplayerGame.getId(), testsInGame, mutantsInGame);
+        addTestsMutantsPlayersToGame(gameToModifyId, playerIdNotToCopy, testsInGame, mutantsInGame);
         response.sendRedirect(request.getContextPath() + "/admin/modify");
     }
 
-    private void addTestsAndMutantsToGame(int gameId, List<Test> testsToAdd, List<Mutant> mutantsToAdd) {
+    private void addTestsMutantsPlayersToGame(int originGameId, int playerIdToRemove, List<Test> testsToAdd, List<Mutant> mutantsToAdd) {
         // The gameId has to change to the new game for each test and mutant
         System.out.println("sizes: " + testsToAdd.size() + "-" +  mutantsToAdd.size());
+        MultiplayerGame originGame = DatabaseAccess.getMultiplayerGame(originGameId);
+        int userIdNotToAdd = DatabaseAccess.getUserFromPlayer(playerIdToRemove).getId();
+        int[] attackers = originGame.getUserIds(Role.ATTACKER);
+        int[] defenders = originGame.getUserIds(Role.DEFENDER);
+        System.out.println(Arrays.toString(attackers) +"||"+ Arrays.toString(defenders));
+        for (int i = 0; i < attackers.length; ++i) {
+            // There are only 5 simulation players.
+            // When there are more than 5 players in one finished game this will break the simulation game
+            if (Constants.SIMULATION_ATTACKER_IDS.length > i && attackers[i] != userIdNotToAdd) {
+                multiplayerGame.addPlayer(Constants.SIMULATION_ATTACKER_IDS[i], Role.ATTACKER);
+            }
+        }
+        for (int i = 0; i < defenders.length; ++i) {
+            // There are only 5 simulation players.
+            // When there are more than 5 players in one finished game this will break the simulation game
+            if (Constants.SIMULATION_DEFENDER_IDS.length > i && defenders[i] != userIdNotToAdd) {
+                multiplayerGame.addPlayer(Constants.SIMULATION_DEFENDER_IDS[i], Role.DEFENDER);
+            }
+        }
+
+        // the playerId != playerIdToRemove is a double check that no tests of the removed player get in the game
         for (Test test : testsToAdd) {
-            test.setGameId(gameId);
-            test.insert(false);
-            multiplayerGame.update();
+            if (test.getPlayerId() != playerIdToRemove) {
+                test.setGameId(multiplayerGame.getId());
+                test.setPlayerId(Arrays.asList(defenders).indexOf(test.getPlayerId()));
+                test.insert(false);
+                multiplayerGame.update();
+            }
         }
         for (Mutant mutant : mutantsToAdd) {
-            mutant.setGameId(gameId);
-            mutant.insert(false);
-            multiplayerGame.update();
+            if (mutant.getCreatorId() != playerIdToRemove) {
+                mutant.setGameId(multiplayerGame.getId());
+                mutant.setCreatorId(Arrays.asList(attackers).indexOf(mutant.getPlayerId()));
+                mutant.insert(false);
+                multiplayerGame.update();
+            }
         }
     }
 }
