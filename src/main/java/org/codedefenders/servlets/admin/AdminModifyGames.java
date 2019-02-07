@@ -61,6 +61,7 @@ public class AdminModifyGames extends HttpServlet {
             case "removePlayer":
                 removePlayer(request, response, messages);
                 break;
+            // the admin add aidef/atk won't be needed. TODO other solution on one page!!!
             case "adminModifyAiDefender":
                 String gameToAddAiDefender = request.getParameter("adminModifyAiDefender");
                 multiplayerGame.setId(Integer.parseInt(gameToAddAiDefender));
@@ -111,7 +112,9 @@ public class AdminModifyGames extends HttpServlet {
         multiplayerGame.setState(GameState.ACTIVE);
         // do not set this here when the structure of adding ai players to a finnished game is changed
         multiplayerGame.setSimulationGame(true);
+
         /* maybe take other players instead of the regular ones because this will fake statistics
+        this is already done but not working 100%
         Arrays.stream(multiplayerGame.getUserIds(Role.DEFENDER))
                 .forEach(id -> multiplayerGame.addPlayer(id, Role.DEFENDER));
         Arrays.stream(multiplayerGame.getUserIds(Role.ATTACKER))
@@ -140,39 +143,48 @@ public class AdminModifyGames extends HttpServlet {
         System.out.println("sizes: " + testsToAdd.size() + "-" +  mutantsToAdd.size());
         MultiplayerGame originGame = DatabaseAccess.getMultiplayerGame(originGameId);
         int userIdNotToAdd = DatabaseAccess.getUserFromPlayer(playerIdToRemove).getId();
-        int[] attackers = originGame.getUserIds(Role.ATTACKER);
-        int[] defenders = originGame.getUserIds(Role.DEFENDER);
-        System.out.println(Arrays.toString(attackers) +"||"+ Arrays.toString(defenders));
-        for (int i = 0; i < attackers.length; ++i) {
+        Integer[] attackersPlayerIds = Arrays.stream(originGame.getAttackerIds()).boxed().toArray(Integer[]::new);
+        Integer[] defendersPlayerIds = Arrays.stream(originGame.getDefenderIds()).boxed().toArray(Integer[]::new);
+        int[] attackersUserIds = originGame.getUserIds(Role.ATTACKER);
+        int[] defendersUserIds = originGame.getUserIds(Role.DEFENDER);
+        Map<Integer, Integer> defenderIdBelongsToDummyId = new HashMap<>();
+        Map<Integer, Integer> attackerIdBelongsToDummyId = new HashMap<>();
+        System.out.println(Arrays.toString(attackersUserIds) +"||"+ Arrays.toString(defendersUserIds));
+        for (int i = 0; i < attackersUserIds.length; ++i) {
             // There are only 5 simulation players.
             // When there are more than 5 players in one finished game this will break the simulation game
-            if (Constants.SIMULATION_ATTACKER_IDS.length > i && attackers[i] != userIdNotToAdd) {
+            if (Constants.SIMULATION_ATTACKER_IDS.length > i && attackersUserIds[i] != userIdNotToAdd) {
+                attackerIdBelongsToDummyId.put(attackersUserIds[i], Constants.SIMULATION_ATTACKER_IDS[i]);
                 multiplayerGame.addPlayer(Constants.SIMULATION_ATTACKER_IDS[i], Role.ATTACKER);
             }
         }
-        for (int i = 0; i < defenders.length; ++i) {
+        for (int i = 0; i < defendersUserIds.length; ++i) {
             // There are only 5 simulation players.
             // When there are more than 5 players in one finished game this will break the simulation game
-            if (Constants.SIMULATION_DEFENDER_IDS.length > i && defenders[i] != userIdNotToAdd) {
+            if (Constants.SIMULATION_DEFENDER_IDS.length > i && defendersUserIds[i] != userIdNotToAdd) {
+                defenderIdBelongsToDummyId.put(defendersUserIds[i], Constants.SIMULATION_DEFENDER_IDS[i]);
                 multiplayerGame.addPlayer(Constants.SIMULATION_DEFENDER_IDS[i], Role.DEFENDER);
             }
         }
 
+        // in dem new attacker player ids sind auch die hinzugefügten bots schon drin die müssen ignoriert werden!!!!!
+        Integer[] newAttackerPlayerIds = Arrays.stream(multiplayerGame.getAttackerIds()).boxed().toArray(Integer[]::new);
+        Integer[] newDefenderPlayerIds = Arrays.stream(multiplayerGame.getDefenderIds()).boxed().toArray(Integer[]::new);
         // the playerId != playerIdToRemove is a double check that no tests of the removed player get in the game
         for (Test test : testsToAdd) {
             if (test.getPlayerId() != playerIdToRemove) {
                 test.setGameId(multiplayerGame.getId());
-                test.setPlayerId(Arrays.asList(defenders).indexOf(test.getPlayerId()));
+                test.setPlayerId(newDefenderPlayerIds[Arrays.asList(defendersPlayerIds).indexOf(test.getPlayerId())]);
                 test.insert(false);
-                multiplayerGame.update();
+                // multiplayerGame.update();
             }
         }
         for (Mutant mutant : mutantsToAdd) {
-            if (mutant.getCreatorId() != playerIdToRemove) {
+            if (mutant.getPlayerId() != playerIdToRemove) {
                 mutant.setGameId(multiplayerGame.getId());
-                mutant.setCreatorId(Arrays.asList(attackers).indexOf(mutant.getPlayerId()));
+                mutant.setPlayerId(newAttackerPlayerIds[Arrays.asList(attackersPlayerIds).indexOf(mutant.getPlayerId())]);
                 mutant.insert(false);
-                multiplayerGame.update();
+                // multiplayerGame.update();
             }
         }
     }

@@ -68,7 +68,7 @@ public class AdminDAO {
             "SELECT *\n" +
                     "FROM games\n" +
                     "   INNER JOIN players ON players.Game_ID = games.ID\n" +
-                    "WHERE Mode = 'PARTY' AND State = 'FINISHED' AND Creator_ID = ?\n" +
+                    "WHERE Mode = 'PARTY' AND State = 'FINISHED' AND Creator_ID = ? AND IsSimulationGame = false\n" +
                     "GROUP BY games.ID;";
 
     private static final String SIMULATION_MULTIPLAYER_GAMES_BY_USER_QUERY =

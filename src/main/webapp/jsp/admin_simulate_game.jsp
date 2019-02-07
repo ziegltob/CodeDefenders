@@ -81,7 +81,7 @@
         return;
     }
 
-    List<Test> tests = game.getTests(true); // get executable defenders' tests
+    List<Test> tests = DatabaseAccess.getTestsForGame(game.getId()); // get stored defenders' tests
 
     // compute line coverage information
     for (Test t : tests) {
@@ -114,7 +114,7 @@
     request.setAttribute("dependencies", cut.getHTMLEscapedDependencyCode());
 
     /* tests_carousel */
-    request.setAttribute("tests", game.getTests());
+    request.setAttribute("tests", DatabaseAccess.getTestsForGame(game.getId()));
     request.setAttribute("mutants", game.getMutants());
 
     /* mutants_list */

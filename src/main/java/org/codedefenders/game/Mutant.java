@@ -174,6 +174,10 @@ public class Mutant implements Serializable {
         this.creatorId = creatorId;
     }
 
+    public void setPlayerId(int playerId) {
+        this.playerId = playerId;
+    }
+
 	public int getId() {
 		return id;
 	}

@@ -80,6 +80,7 @@ public class AiAttacker extends AiPlayer {
 	 * @return true if mutant generation succeeds, or if no non-existing mutants have been found to prevent infinite loop.
 	 */
 	public boolean turnEasy() {
+		System.out.println("TURN EASY!!!");
 		//Choose a random mutant.
 		multiplayerGame = DatabaseAccess.getMultiplayerGame(game.getId());
 		if (multiplayerGame.getState() == GameState.FINISHED) {

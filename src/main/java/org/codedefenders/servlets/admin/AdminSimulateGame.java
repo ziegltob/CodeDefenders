@@ -49,6 +49,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import javax.xml.crypto.Data;
 
 public class AdminSimulateGame extends HttpServlet {
 
@@ -82,10 +83,11 @@ public class AdminSimulateGame extends HttpServlet {
             return;
         }
         final String contextPath = request.getContextPath();
-        final MultiplayerGame gameToSimulate = DatabaseAccess.getMultiplayerGame(gameId);
+        final MultiplayerGame simulationGame = DatabaseAccess.getMultiplayerGame(gameId);
+        final MultiplayerGame dummyGame = DatabaseAccess.getMultiplayerGame(gameId);
         // MultiplayerGame simulatedGame = new MultiplayerGame();
 
-        if (gameToSimulate == null) {
+        if (simulationGame == null) {
             logger.error("Could not retrieve game from database for gameId: {}", gameId);
             Redirect.redirectBack(request, response);
             return;
@@ -94,41 +96,48 @@ public class AdminSimulateGame extends HttpServlet {
         final String action = request.getParameter("formType");
         switch (action) {
             case "simulateGame": {
-                if (gameToSimulate.getState().equals(GameState.ACTIVE)) {
-                    logger.info("Starting simulation game {}", gameToSimulate.getId());
-                    List<Test> testList = DatabaseAccess.getTestsForGame(gameToSimulate.getId());
-                    List<Mutant> mutantList = gameToSimulate.getMutants();
+                if (simulationGame.getState().equals(GameState.ACTIVE)) {
+                    logger.info("Starting simulation game {}", simulationGame.getId());
+                    List<Test> testList = DatabaseAccess.getTestsForGame(simulationGame.getId());
+                    List<Mutant> mutantList = simulationGame.getMutants();
                     System.out.println("sizes: " + testList.size() + "__" + mutantList.size());
 
-                    boolean isAiDefInGame = ArrayUtils.contains(gameToSimulate.getUserIds(Role.DEFENDER), AiDefender.ID);
-                    boolean isAiAtkInGame = ArrayUtils.contains(gameToSimulate.getUserIds(Role.ATTACKER), AiAttacker.ID);
-                    AiAttacker aiAttacker = isAiAtkInGame ? new AiAttacker(gameToSimulate.getId()) : null;
-                    AiDefender aiDefender = isAiDefInGame ? new AiDefender(gameToSimulate.getId()) : null;
-
-                    List<long[]> timeseriesList = new ArrayList<>();
+                    // This list stores the sequence in which tests and mutants have been added to the game.
                     // The first element of the array stands for mutant(=0) or test(=1)
+                    // [0] = test/mutant, [1] = timestamp, [2] = id
+                    List<long[]> timeseriesList = new ArrayList<>();
                     mutantList.stream().forEach(mutant -> timeseriesList.add(new long[]{0, mutant.getTimestamp().getTime(), mutant.getId()}));
                     testList.stream().forEach(test -> timeseriesList.add(new long[]{1, test.getTimestamp().getTime(), test.getId()}));
                     timeseriesList.sort(Comparator.comparing(array -> array[1]));
 
-                    Timestamp timeSinceAiTurn = new Timestamp(gameToSimulate.getStartInLong());
+                    Timestamp timeSinceAiTurn = new Timestamp(simulationGame.getStartInLong());
+
+                    // create a new game where the tests/mutants are added and the simulation acutally takes place
+                    simulationGame.insert();
+                    Arrays.stream(dummyGame.getDefenderIds()).forEach(playerId ->simulationGame.addPlayer(DatabaseAccess.getUserFromPlayer(playerId).getId(), Role.DEFENDER));
+                    Arrays.stream(dummyGame.getAttackerIds()).forEach(playerId ->simulationGame.addPlayer(DatabaseAccess.getUserFromPlayer(playerId).getId(), Role.ATTACKER));
+                    boolean isAiDefInGame = ArrayUtils.contains(simulationGame.getUserIds(Role.DEFENDER), AiDefender.ID);
+                    boolean isAiAtkInGame = ArrayUtils.contains(simulationGame.getUserIds(Role.ATTACKER), AiAttacker.ID);
+                    AiAttacker aiAttacker = isAiAtkInGame ? new AiAttacker(simulationGame.getId()) : null;
+                    AiDefender aiDefender = isAiDefInGame ? new AiDefender(simulationGame.getId()) : null;
 
                     for (int i = 0; i < timeseriesList.size(); ++i) {
-                        System.out.println("timeserieslist"+ timeseriesList.get(i)[0] +"__"+ new Timestamp(timeseriesList.get(i)[1]));
+                        // System.out.println("timeserieslist"+ timeseriesList.get(i)[0] +"__"+ new Timestamp(timeseriesList.get(i)[1]));
                         if (i == 0) {
-                            addTestOrMutant(gameToSimulate, timeseriesList.get(i));
+                            addTestOrMutant(simulationGame, dummyGame, timeseriesList.get(i));
                             timeSinceAiTurn = new Timestamp(timeseriesList.get(i)[1]);
                             continue;
                         }
                         if (timeseriesList.size() - 1 == i) {
-                            addTestOrMutant(gameToSimulate, timeseriesList.get(i));
+                            addTestOrMutant(simulationGame, dummyGame, timeseriesList.get(i));
                             continue;
                         }
+                        // TODO COMPUTATION WRONG
                         // for each minute time difference the bot makes a turn
-                        int nrOfAiTurns = (((int) timeseriesList.get(i)[2] - (int) timeSinceAiTurn.getTime()) / 60000) > 5 ?
+                        int nrOfAiTurns = (((int) timeseriesList.get(i)[2] - (int) timeSinceAiTurn.getTime()) / 60000) > 1 ?
                                 5 : ((int) timeseriesList.get(i)[2] - (int) timeSinceAiTurn.getTime()) / 60000;
 
-                        System.out.println("turnnrr:" + nrOfAiTurns);
+                        // System.out.println("turnnrr:" + nrOfAiTurns);
 
                         for (int j = 0; j < nrOfAiTurns; ++j) {
                             if (isAiAtkInGame) {
@@ -141,8 +150,9 @@ public class AdminSimulateGame extends HttpServlet {
                             }
                         }
 
-                        addTestOrMutant(gameToSimulate, timeseriesList.get(i));
+                        addTestOrMutant(simulationGame, dummyGame, timeseriesList.get(i));
                     }
+                    response.sendRedirect(request.getContextPath() + "/admin/simulate?id=" + simulationGame.getId());
                 }
                 break;
             }
@@ -154,13 +164,13 @@ public class AdminSimulateGame extends HttpServlet {
         // response.sendRedirect(request.getContextPath() + "/admin/simulate?id=" + simulatedGame.getId());
     }
 
-    private void addTestOrMutant(MultiplayerGame game, long[] testOrMutantToAdd) {
-        // 0 = mutant, 1 = test
+    private void addTestOrMutant(MultiplayerGame simulationGame, MultiplayerGame dummyGame, long[] testOrMutantToAdd) {
+        // [0]: 0 = mutant, 1 = test
         try {
             if (testOrMutantToAdd[0] == 0) {
-                useMutantFromSuite(game, (int) testOrMutantToAdd[2]);
+                useMutantFromSuite(simulationGame, dummyGame, (int) testOrMutantToAdd[2]);
             } else if (testOrMutantToAdd[0] == 1) {
-                useTestFromSuite(game, (int) testOrMutantToAdd[2]);
+                useTestFromSuite(simulationGame, dummyGame, (int) testOrMutantToAdd[2]);
             }
         } catch (NoMutantsException e) {
             e.printStackTrace();
@@ -169,10 +179,8 @@ public class AdminSimulateGame extends HttpServlet {
         }
     }
 
-    private void useTestFromSuite(MultiplayerGame game, int origTestNum) throws NoDummyGameException {
-        GameClass cut = game.getCUT();
-        DuelGame dummyGame = cut.getDummyGame();
-        List<Test> origTests = game.getTests();
+    private void useTestFromSuite(MultiplayerGame game, MultiplayerGame dummyGame, int origTestNum) throws NoDummyGameException {
+        List<Test> origTests = DatabaseAccess.getTestsForGame(dummyGame.getId());
 
         Test origTest = null;
 
@@ -186,7 +194,7 @@ public class AdminSimulateGame extends HttpServlet {
         if(origTest != null) {
             String jFile = origTest.getJavaFile();
             String cFile = origTest.getClassFile();
-            int playerId = DatabaseAccess.getPlayerIdForMultiplayerGame(Constants.DUMMY_DEFENDER_USER_ID, game.getId());
+            int playerId = origTest.getPlayerId();
             Test t = new Test(game.getId(), jFile, cFile, playerId);
             System.out.println("jfile of t " + t.getJavaFile());
             t.insert(false);
@@ -194,7 +202,6 @@ public class AdminSimulateGame extends HttpServlet {
             TargetExecution newExec = new TargetExecution(t.getId(), 0, TargetExecution.Target.COMPILE_TEST, "SUCCESS", null);
             newExec.insert();
             MutationTester.runTestOnAllMultiplayerMutants(game, t, messages);
-            DatabaseAccess.setAiTestAsUsed(origTestNum, game);
             File dir = new File(origTest.getDirectory());
             AntRunner.testOriginal(dir, t);
             game.update();
@@ -202,10 +209,8 @@ public class AdminSimulateGame extends HttpServlet {
         }
     }
 
-    private void useMutantFromSuite(MultiplayerGame game, int origMutNum) throws NoMutantsException, NoDummyGameException {
-        GameClass cut = game.getCUT();
-        DuelGame dummyGame = cut.getDummyGame();
-        List<Mutant> origMutants = game.getMutants();
+    private void useMutantFromSuite(MultiplayerGame game, MultiplayerGame dummyGame, int origMutNum) throws NoMutantsException, NoDummyGameException {
+        List<Mutant> origMutants = dummyGame.getMutants();
 
         Mutant origM = null;
 
@@ -222,7 +227,7 @@ public class AdminSimulateGame extends HttpServlet {
 
         String jFile = origM.getSourceFile();
         String cFile = origM.getClassFile();
-        int playerId = DatabaseAccess.getPlayerIdForMultiplayerGame(Constants.DUMMY_ATTACKER_USER_ID, game.getId());
+        int playerId = origM.getPlayerId();
         Mutant m = new Mutant(game.getId(), jFile, cFile, true, playerId);
         m.insert(false);
         m.update();
