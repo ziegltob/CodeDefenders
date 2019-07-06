@@ -18,9 +18,7 @@
  */
 package org.codedefenders.game.singleplayer;
 
-import org.apache.commons.collections.bidimap.DualHashBidiMap;
 import org.codedefenders.game.AbstractGame;
-import org.codedefenders.game.GameMode;
 import org.codedefenders.game.duel.DuelGame;
 import org.codedefenders.game.Role;
 import org.codedefenders.game.multiplayer.MultiplayerGame;
@@ -34,29 +32,22 @@ import java.util.ArrayList;
 public abstract class AiPlayer {
 
 	public enum GenerationMethod {
-		RANDOM, //Randomly select mutant.
-		COVERAGE, //Select random mutant by least covered lines.
-		KILLCOUNT //Number of mutants a test kills, or number of tests that kill mutant.
+		RANDOM, // Randomly select a test/mutant.
+		COVERAGE, // Select a test/mutant by the lines worked on the least.
+		KILLCOUNT // Select a test/mutant that kills the highest scoring mutant/survives at the most covered lines.
 	}
 
 	// one variable game which will be assigned to a specific type
 	protected AbstractGame game;
 	protected MultiplayerGame multiplayerGame;
-	protected SinglePlayerGame singlePlayerGame;
+	// protected SinglePlayerGame singlePlayerGame;
 	protected Role role;
 	protected ArrayList<String> messages;
 
 	public AiPlayer(AbstractGame g) {
-		/*if (g.getMode() == GameMode.DUEL) {
-			game = (DuelGame) g;
-		} else if (g.getMode() == GameMode.PARTY) {
-			multiplayerGame = (MultiplayerGame) g;
-		} else if (g.getMode() == GameMode.SINGLE) {
-			singlePlayerGame = (SinglePlayerGame) g;
-		} */
 		game = g;
 
-		messages = new ArrayList<String>();
+		messages = new ArrayList<>();
 	}
 
 	/**
@@ -86,7 +77,7 @@ public abstract class AiPlayer {
 
 	public abstract boolean turnHard();
 
-	protected abstract boolean runTurn(GenerationMethod strat);
+	public abstract boolean runTurn(GenerationMethod strat);
 
 	public abstract ArrayList<String> getMessagesLastTurn();
 }

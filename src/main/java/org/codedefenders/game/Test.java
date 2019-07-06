@@ -35,13 +35,13 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.HashSet;
 import java.util.stream.Collectors;
 
 import javassist.ClassPool;
@@ -61,7 +61,7 @@ public class Test {
 	private int playerId;
 	private int gameId;
 	private String javaFile;
-	private String classFile;
+    private String classFile;
 	private Timestamp timestamp;
 
 	/**
@@ -241,7 +241,15 @@ public class Test {
 	}
 
 	public Set<Mutant> getKilledMutants() {
-		return DatabaseAccess.getKilledMutantsForTestId(id);
+		// rather use a well formed DB query than this
+		Set<Mutant> killedMutants = new HashSet<>();
+		DatabaseAccess.getMultiplayerGame(DatabaseAccess.getTestForId(id).getGameId()).getKilledMutants()
+		.stream().forEach(mutant -> {
+			if (DatabaseAccess.getKillingTestIdForMutant(mutant.getId()) == id) {
+				killedMutants.add(mutant);
+			}
+		});
+		return killedMutants;
 	}
 
 	@SuppressWarnings("Duplicates")
@@ -306,8 +314,10 @@ public class Test {
 		}
 
 
-		String query = "UPDATE tests SET mutantsKilled=?,NumberAiMutantsKilled=?,Lines_Covered=?,Lines_Uncovered=?,Points=? WHERE Test_ID=?;";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(mutantsKilled),
+		String query = "UPDATE tests SET ClassFile=?,mutantsKilled=?,NumberAiMutantsKilled=?,Lines_Covered=?,Lines_Uncovered=?,Points=? WHERE Test_ID=?;";
+		DatabaseValue[] valueList = new DatabaseValue[]{
+		        DB.getDBV(classFile),
+		        DB.getDBV(mutantsKilled),
 				DB.getDBV(aiMutantsKilled),
 				DB.getDBV(linesCoveredString),
 				DB.getDBV(linesUncoveredString),
@@ -361,7 +371,11 @@ public class Test {
 		return classFile;
 	}
 
-	public LineCoverage getLineCoverage() {
+    public void setClassFile(String classFile) {
+        this.classFile = classFile;
+    }
+
+    public LineCoverage getLineCoverage() {
 		return lineCoverage;
 	}
 
@@ -410,5 +424,23 @@ public class Test {
 				return o2.id - o1.id;
 			}
 		};
+	}
+
+	@Override
+	public String toString() {
+		return "Test{" +
+				"id=" + id +
+				", playerId=" + playerId +
+				", gameId=" + gameId +
+				", javaFile='" + javaFile + '\'' +
+				", classFile='" + classFile + '\'' +
+				", timestamp=" + timestamp +
+				", classId=" + classId +
+				", roundCreated=" + roundCreated +
+				", mutantsKilled=" + mutantsKilled +
+				", score=" + score +
+				", aiMutantsKilled=" + aiMutantsKilled +
+				", lineCoverage=" + lineCoverage +
+				'}';
 	}
 }

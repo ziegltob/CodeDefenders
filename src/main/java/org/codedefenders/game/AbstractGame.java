@@ -131,7 +131,7 @@ public abstract class AbstractGame {
 	 * @return a list of executable Mutants for the AI-Player to enter.
 	 */
 	public List<Mutant> getMutantsFromPool() {
-		return DatabaseAccess.getExecutableMutants(this.id);
+		return DatabaseAccess.getMutantsForGame(this.id);
 	}
 
 	public List<Mutant> getMutants() {

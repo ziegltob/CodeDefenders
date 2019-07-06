@@ -37,7 +37,6 @@
         redirectToGames = true;
     }
     MultiplayerGame game = DatabaseAccess.getMultiplayerGame(gameId);
-    System.out.println(game.getId());
     if (game == null){
         logger.error(String.format("Could not find multiplayer game %d", gameId));
         redirectToGames = true;
@@ -70,6 +69,7 @@
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.Map" %>
 <%
+    int originGameId = DatabaseAccess.getSimulationOriginGame(game.getId());
     boolean renderMutants = true;
     boolean redirect = false;
     String codeDivName = "cut-div"; // used
@@ -138,7 +138,9 @@
 %>
 
 <div class="simulation-panel">
-    <h2>Admin</h2>
+    <h2>Admin Simulation</h2>
+    <a class="btn btn-primary btn-game" id="<%="observe-simulated-"+originGameId%>"
+       href="<%= request.getContextPath() %>/multiplayer/games?id=<%= originGameId %>">Origin Game <%=originGameId%></a>
     <form id="adminSimulateBtn" action="admin/simulate" method="post" style="display: inline-block;">
         <button type="submit" class="btn btn-primary btn-game" id="simulateGame" form="adminSimulateBtn"
                 <% if (game.getState() != GameState.ACTIVE) { %> disabled <% } %>>

@@ -130,6 +130,12 @@ public class AdminSystemSettings extends HttpServlet {
 			public String toString() {
 				return "Turn on certain debugging features such as detailed debug prints for javax.mail";
 			}
+		},
+		AI_STRAT {
+			@Override
+			public String toString() {
+				return "The strategy the AI-Player uses.";
+			}
 		}
 	}
 

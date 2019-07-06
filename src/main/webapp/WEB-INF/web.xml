@@ -56,6 +56,7 @@
 			<url-pattern>/admin/users</url-pattern>
 			<url-pattern>/admin/settings</url-pattern>
 			<url-pattern>/admin/simulation</url-pattern>
+			<url-pattern>/admin/simulated</url-pattern>
 			<url-pattern>/admin/simulate</url-pattern>
 			<url-pattern>/api/*</url-pattern>
 			<http-method>GET</http-method>
@@ -401,6 +402,15 @@
 	<servlet-mapping>
 		<servlet-name>AdminSimulationGames</servlet-name>
 		<url-pattern>/admin/simulation</url-pattern>
+	</servlet-mapping>
+
+	<servlet>
+		<servlet-name>AdminSimulatedGames</servlet-name>
+		<servlet-class>org.codedefenders.servlets.admin.AdminSimulatedGames</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>AdminSimulatedGames</servlet-name>
+		<url-pattern>/admin/simulated</url-pattern>
 	</servlet-mapping>
 
 	<servlet>

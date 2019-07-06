@@ -6,6 +6,7 @@ import org.codedefenders.game.duel.DuelGame;
 import org.codedefenders.database.DatabaseAccess;
 import org.codedefenders.execution.TargetExecution;
 import org.codedefenders.game.Test;
+import org.codedefenders.game.multiplayer.MultiplayerGame;
 import org.codedefenders.util.FileUtils;
 
 import java.io.File;
@@ -33,40 +34,33 @@ public class GenerateTestPool {
     }
 
     public boolean generateTests() throws Exception {
-        List<DuelGame> gamesWithCUT = DatabaseAccess.getGamesForClass(cId);
-        // no need to compile those cause they already were compiled
+        List<MultiplayerGame> gamesWithCUT = DatabaseAccess.getGamesForClass(cId);
 
-        // in the test.getJavaFile is the path. we need the content...
-
-        // >>> we first need to compile the testsuit so it is in the ai folder!!!!<<<<
-        // do we even need to compile cause the tests are submitted by users...
-        // maybe figure out which test is better for a certain line of code?
         ArrayList<String> testStrings = new ArrayList<String>();
-        for (DuelGame game : gamesWithCUT) {
-            List<Test> testsForGame = game.getTests();
+        for (MultiplayerGame game : gamesWithCUT) {
+            // this does not check for targetexecutions since there are only 1/3 targetexecutions
+            // for all tests in the database dump i am using for the simulation
+            List<Test> testsForGame = DatabaseAccess.getTestsForGame(game.getId());
             for (Test test : testsForGame) {
                 testStrings.add(test.getAsString());
-                System.out.println("hier" + test.getAsString());
             }
         }
 
-        validTests = new ArrayList<Test>();
+        validTests = new ArrayList<>();
 
         try {
-            System.out.println("size:" + testStrings.size());
             for (String t : testStrings) {
                 File newTestDir = FileUtils.getNextSubDir(AI_DIR + F_SEP + "tests" +
                         F_SEP + cut.getAlias());
                 String jFile = FileUtils.createJavaFile(newTestDir, cut.getBaseName(), t);
                 Test newTest = AntRunner.compileTest(newTestDir, jFile, dGame.getId(), cut, AiDefender.ID);
                 TargetExecution compileTestTarget = DatabaseAccess.getTargetExecutionForTest(newTest, TargetExecution.Target.COMPILE_TEST);
-                System.out.println("exe" + jFile);
                 if (compileTestTarget != null && compileTestTarget.status.equals("SUCCESS")) {
                     AntRunner.testOriginal(newTestDir, newTest);
                     validTests.add(newTest);
                 }
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
             return false;
         }

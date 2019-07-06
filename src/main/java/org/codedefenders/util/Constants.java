@@ -116,6 +116,7 @@ public class Constants {
 	public static final String ADMIN_MONITOR_JSP = "/jsp" + F_SEP + "admin_monitor_games.jsp";
 	public static final String ADMIN_MODIFY_JSP = "/jsp" + F_SEP + "admin_modify_games.jsp";
 	public static final String ADMIN_SIMULATION_JSP = "/jsp" + F_SEP + "admin_simulation_games.jsp";
+	public static final String ADMIN_SIMULATED_JSP = "/jsp" + F_SEP + "admin_simulated_games.jsp";
 	public static final String ADMIN_SIMULATE_JSP = "/jsp" + F_SEP + "admin_simulate_game.jsp";
 	public static final String ADMIN_ANALYTICS_USERS_JSP = "/jsp" + F_SEP + "admin_analytics_users.jsp";
 	public static final String ADMIN_ANALYTICS_CLASSES_JSP = "/jsp" + F_SEP + "admin_analytics_classes.jsp";

@@ -30,15 +30,15 @@
 <% String pageTitle = null; %>
 <%@ include file="header_main.jsp" %>
 <div class="full-width">
-    <% request.setAttribute("adminActivePage", "adminSimulationGames"); %>
+    <% request.setAttribute("adminActivePage", "adminSimulatedGames"); %>
     <%@ include file="admin_navigation.jsp" %>
 
     <form id="games" action="admin/simulation" method="post">
         <%--<input type="hidden" name="formType" value="startStopGame">--%>
-        <h3>Simulatable Games</h3>
+        <h3>Simulated Games</h3>
 
         <%
-            List<MultiplayerGame> insertedGames = AdminDAO.getMultiplayerSimulationGamesCreatedBy( (Integer)request.getSession().getAttribute("uid"));
+            List<MultiplayerGame> insertedGames = AdminDAO.getSimulatedGamesByCreator( (Integer)request.getSession().getAttribute("uid"));
             if (insertedGames.isEmpty()) {
         %>
         <div class="panel panel-default">
@@ -63,13 +63,7 @@
                 <th>Attackers</th>
                 <th>Defenders</th>
                 <th>Original Game</th>
-                <th>Starting</th>
-                <th>Finishing</th>
-                <th>
-                    <a id="togglePlayersActive" class="btn btn-sm btn-default" title="Show list of Players for each Game.">
-                        <span id = "togglePlayersActiveSpan" class="glyphicon glyphicon-alert"></span>
-                    </a>
-                </th>
+                <th>AI Strategy</th>
             </tr>
             </thead>
             <tbody>
@@ -94,8 +88,8 @@
                 <td><%= gameId %>
                 </td>
                 <td>
-                    <a class="btn btn-sm btn-primary" id="<%="simulate-"+g.getId()%>"
-                       href="<%= request.getContextPath() %>/admin/simulate?id=<%= gameId %>">Simulate</a>
+                    <a class="btn btn-sm btn-primary" id="<%="observe-"+g.getId()%>"
+                       href="<%= request.getContextPath() %>/admin/simulate?id=<%= gameId %>">Observe</a>
                 </td>
                 <td class="col-sm-2">
                     <a href="#" data-toggle="modal" data-target="#modalCUTFor<%=gameId%>">
@@ -132,94 +126,8 @@
                 </td>
                 <td><%= g.getOriginGameId() %>
                 </td>
-                <td class="col-sm-2"><%= g.getStartDateTime() %>
+                <td><%= g.getAiStrat() %>
                 </td>
-                <td class="col-sm-2"><%= g.getFinishDateTime() %>
-                </td>
-                <td class="col-sm-1" style="padding-top:4px; padding-bottom:4px">
-                    <button class="<%=startStopButtonClass%>" type="submit" value="<%=gameId%>" name="start_stop_btn"
-                            onclick="<%=startStopButtonAction%>" id="<%="start_stop_"+g.getId()%>">
-                        <span class="<%=startStopButtonIcon%>"></span>
-
-                    </button>
-                </td>
-                    <%List<List<String>> playersInfo = AdminDAO.getPlayersInfo(gameId);
-                if(!playersInfo.isEmpty()){%>
-            <tr id="playersTableActive" hidden>
-                <th colspan="3">Game Score</th>
-                <th style="border-bottom: 1px solid black">Name</th>
-                <th style="border-bottom: 1px solid black">Submissions</th>
-                <th style="border-bottom: 1px solid black">Last Action</th>
-                <th style="border-bottom: 1px solid black">Points</th>
-                <th style="border-bottom: 1px solid black">Total Score</th>
-                <th style="border-bottom: 1px solid black"></th>
-            </tr>
-            <%
-                }
-                boolean firstAttacker = true;
-                boolean firstDefender = true;
-
-                // Compute the cumulative sum of each role score. Not sure if this is how is done in the scoreboard
-                int gameScoreAttack = 0;
-                int gameScoreDefense = 0;
-
-                for (List<String> playerInfo : playersInfo) {
-                    if( Role.ATTACKER.equals( Role.valueOf(playerInfo.get(2)) ) ){
-                        gameScoreAttack = gameScoreAttack + Integer.parseInt(playerInfo.get(4));
-                    } else if (Role.DEFENDER.equals( Role.valueOf(playerInfo.get(2)) ) ){
-                        gameScoreDefense = gameScoreDefense + Integer.parseInt(playerInfo.get(4));
-                    }
-                }
-
-                for (List<String> playerInfo : playersInfo) {
-                    int playerId = Integer.parseInt(playerInfo.get(0));
-                    String userName = playerInfo.get(1);
-                    Role role = Role.valueOf(playerInfo.get(2));
-                    String ts = playerInfo.get(3);
-                    String lastSubmissionTS = AdminDAO.TIMESTAMP_NEVER.equalsIgnoreCase(ts) ? ts : AdminCreateGames.formatTimestamp(ts);
-                    int totalScore = Integer.parseInt(playerInfo.get(4));
-                    int submissionsCount = Integer.parseInt(playerInfo.get(5));
-                    String color = role == Role.ATTACKER ? "#edcece" : "#ced6ed";
-                    int gameScore = AdminCreateGames.getPlayerScore(g, playerId);
-            %>
-            <tr style="height: 3px;" id="playersTableActive" hidden></tr>
-            <tr id="playersTableActive" hidden>
-                <%	if ( firstAttacker && role.equals( Role.ATTACKER ) ) {%>
-                <td colspan = "3"><%= gameScoreAttack %></td>
-                <%	firstAttacker = false;
-                }
-                else if ( firstDefender && role.equals( Role.DEFENDER ) ) {%>
-                <td colspan = "3"><%= gameScoreDefense %></td>
-                <%  firstDefender = false;
-                } else { %>
-                <td></td>
-                <td></td>
-                <td></td>
-                <%  } %>
-                <td style="background: <%= color %>; border-top-left-radius: 7px;border-bottom-left-radius: 7px;">
-                    <%= userName %>
-                </td>
-                <td style="background: <%= color %>"><%= submissionsCount %>
-                </td>
-                <td style="background: <%= color %>"><%= lastSubmissionTS %>
-                </td>
-                <td style="background: <%= color %>"><%= gameScore %>
-                </td>
-                <td style="background: <%= color %>"><%= totalScore %>
-                </td>
-                <td style="background: <%= color %>">
-                </td>
-                <td style="background: <%= color %>; border-top-right-radius: 7px;border-bottom-right-radius: 7px;">
-
-                    <button class="btn btn-sm btn-danger" value="<%=playerId + "-" + gameId%>"
-                            onclick="return confirm('This will create a new game without the actions of this player');"
-                            id="<%="remove_player_"+playerId+"from_game_"+gameId%>"
-                            name="gameUserRemoveButton">Remove
-                    </button>
-                    <input type="hidden" name="formType" value="removePlayer">
-                </td>
-            </tr>
-            <% } %>
             <% } %>
             </tbody>
         </table>
@@ -254,7 +162,6 @@
             var showPlayers = localStorage.getItem("showActivePlayers") === "true";
             localStorage.setItem("showActivePlayers", showPlayers ? "false" : "true");
             $("[id=playersTableActive]").toggle();
-            setActivePlayersSpan()
         });
 
         function setActivePlayersSpan() {

@@ -18,22 +18,20 @@
  */
 package org.codedefenders.game.singleplayer.automated.defender;
 
-import com.sun.corba.se.impl.orb.DataCollectorBase;
+import org.apache.commons.lang3.Range;
 import org.codedefenders.execution.AntRunner;
 import org.codedefenders.execution.ExecutorPool;
 import org.codedefenders.game.*;
 import org.codedefenders.execution.MutationTester;
 import org.codedefenders.game.duel.DuelGame;
-import org.codedefenders.game.multiplayer.MultiplayerGame;
+import org.codedefenders.game.multiplayer.PlayerScore;
 import org.codedefenders.game.singleplayer.AiPlayer;
 import org.codedefenders.game.singleplayer.NoDummyGameException;
-import org.codedefenders.game.singleplayer.PrepareAI;
 import org.codedefenders.database.DatabaseAccess;
 import org.codedefenders.execution.TargetExecution;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.xml.crypto.Data;
 import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -54,9 +52,21 @@ public class AiDefender extends AiPlayer {
 		role = Role.DEFENDER;
 	}
 	public boolean turnHard() {
-		//Choose test which kills a high number of generated mutants.
-        multiplayerGame = DatabaseAccess.getMultiplayerGame(game.getId());
-        if (multiplayerGame.getState() == GameState.FINISHED) {
+		return runTurn(GenerationMethod.KILLCOUNT);
+	}
+
+	public boolean turnEasy() {
+        return runTurn(GenerationMethod.RANDOM);
+	}
+
+	/**
+	 * Attempts to submit a test, according to a strategy
+	 * @param strat Generation strategy to use
+	 * @return true if test submitted, false otherwise
+	 */
+	public boolean runTurn(GenerationMethod strat) {
+		multiplayerGame = DatabaseAccess.getMultiplayerGame(game.getId());
+		if (multiplayerGame.getState() == GameState.FINISHED) {
 			if (DatabaseAccess.getJoinedMultiplayerGamesForUser(AiDefender.ID).stream()
 					.filter(joinedGames -> joinedGames.getId() == multiplayerGame.getId())
 					.findFirst().isPresent()) {
@@ -66,21 +76,31 @@ public class AiDefender extends AiPlayer {
 				return false;
 			}
 		}
-		return runTurn(GenerationMethod.KILLCOUNT);
-	}
 
-	public boolean turnEasy() {
-		//Choose random test.
-        multiplayerGame = DatabaseAccess.getMultiplayerGame(game.getId());
-        return runTurn(GenerationMethod.RANDOM);
-	}
+		// should the bot actually do something: depends on game score and mutant/test relation
+		// numbers are made up and calculated from the db dump of a testing session
+		// TODO: move this to AiPlayer class together with the similar function in AiAttacker
+		HashMap mutantScores = multiplayerGame.getMutantScores();
+		HashMap testScores = multiplayerGame.getTestScores();
+		int attackerScore = 0;
+		int defenderScore = 0;
+		if (mutantScores.containsKey(-1) && mutantScores.get(-1) != null) {
+			attackerScore += ((PlayerScore) mutantScores.get(-1)).getTotalScore();
+		}
+		if (testScores.containsKey(-2) && testScores.get(-2) != null) {
+			attackerScore += ((PlayerScore) testScores.get(-2)).getTotalScore();
+		}
+		if (testScores.containsKey(-1) && testScores.get(-1) != null) {
+			defenderScore += ((PlayerScore) testScores.get(-1)).getTotalScore();
+		}
+		if (defenderScore + 5 > attackerScore
+                || multiplayerGame.getMutants().size() < multiplayerGame.getTests().size() * 2
+                || multiplayerGame.getMutants().size() == 0
+                || multiplayerGame.getAliveMutants().size() == 0) {
+			logger.info("AI-Defender doing nothing due to game scores or test-mutant relation.");
+			return false;
+		}
 
-	/**
-	 * Attempts to submit a test, according to a strategy
-	 * @param strat Generation strategy to use
-	 * @return true if test submitted, false otherwise
-	 */
-	protected boolean runTurn(GenerationMethod strat) {
 		try {
 			int tNum = selectTest(strat);
 			useTestFromSuite(tNum);
@@ -97,16 +117,12 @@ public class AiDefender extends AiPlayer {
 	}
 
 	private int selectTest(GenerationMethod strategy) throws NoTestsException, NoDummyGameException {
-	    // game is actually a multiplayer game
-        // For further development (singleplayer, DuelGame AI) the game has to be set correctly
-        // depending on the GameMode
+        // For further development (singleplayer, DuelGame AI) the game has to be set correctly depending on the GameMode
 		List<Integer> usedTests = DatabaseAccess.getUsedAiTestsForGame(game);
 		GameClass cut = game.getCUT();
 		DuelGame dummyGame = cut.getDummyGame();
-		
-		//TODO: Discarding useless tests in origtests would be a sideeffect
-		List<Test> candidateTests = dummyGame.getTests().stream().filter(test -> !usedTests.contains(test.getId())).collect(Collectors.toList());
 
+		List<Test> candidateTests = DatabaseAccess.getTestsForGame(dummyGame.getId()).stream().filter(test -> !usedTests.contains(test.getId())).collect(Collectors.toList());
 
 		if(candidateTests.isEmpty()) {
 			throw new NoTestsException("All generated tests have already been used.");
@@ -128,49 +144,73 @@ public class AiDefender extends AiPlayer {
 	}
 
 	private int getTestIdByCoverage(List<Test> possibleTests) {
-		HashSet<Integer> linesModified = new HashSet<Integer>();
-		for (Mutant m : game.getAliveMutants()) {
-			linesModified.addAll(m.getLines());
-		}
-		logger.debug("Alive mutated lines: {}", linesModified.toString());
+		// HashMap Key: line number of class, Value: total count how many tests and mutants are covering this line
+		HashMap<Integer, Integer> modifiedLines = new HashMap<>();
+		GameClass cut = game.getCUT();
+		List<Range<Integer>> linesOfCoverableCode = new ArrayList<>();
+		linesOfCoverableCode.addAll(cut.getLinesOfMethods());
 
-		Test covTest = null;
-		int bestCoverage = 0;
-		for (Test tst : possibleTests) {
-			LineCoverage lc = tst.getLineCoverage(); // test already has line coverage information here
-			List<Integer> coveredByTest = lc.getLinesCovered();
-			int coverage = 0;
-
-			StringBuilder logOutput = new StringBuilder();
-			logOutput.append("String covers lines: ");
-			for (int l : coveredByTest) {
-				logOutput.append(l);
-				if(linesModified.contains(l)) {
-					logOutput.append("[HIT]");
-					//Test covers this mutated line.
-					coverage ++;
+		for (Test test :  multiplayerGame.getTests()) {
+			for (Integer line : test.getLineCoverage().getLinesCovered()) {
+				if (modifiedLines.keySet().contains(line)) {
+					Integer i = modifiedLines.get(line);
+					modifiedLines.put(line, ++i);
+				} else {
+					modifiedLines.put(line, 1);
 				}
-				logOutput.append(", ");
-			}
-			logger.info(logOutput.toString());
-			if (coverage > bestCoverage) {
-				//Test is the best unused test found.
-				covTest = tst;
-				bestCoverage = coverage;
 			}
 		}
-		if (covTest != null) {
-			//Just use the found test if using line coverage method.
-			return covTest.getId();
-		} else {
-			logger.debug("No test covers an alive mutated line, using killcount instead.");
-			return getTestIdByKillcount(possibleTests);
+
+		for (Mutant m : multiplayerGame.getMutants()) {
+			for (Integer line : m.getLines()) {
+				if (modifiedLines.keySet().contains(line)) {
+					Integer i = modifiedLines.get(line);
+					modifiedLines.put(line, ++i);
+				} else {
+					modifiedLines.put(line, 1);
+				}
+			}
 		}
+		logger.debug("All modified lines: {}", modifiedLines.toString());
+
+		// check if there are lines that are not covered at all and if there are any find a test for those lines
+		for (Range<Integer> coverableLines : linesOfCoverableCode) {
+			for (int i = coverableLines.getMinimum(); i <= coverableLines.getMaximum(); ++i) {
+				if (!modifiedLines.keySet().contains(i)) {
+					final int line = i;
+					Test selectedTest = possibleTests.stream()
+							.filter(test -> test.getLineCoverage().getLinesCovered().contains(line))
+							.findFirst().orElse(null);
+					if (selectedTest != null) {
+						return selectedTest.getId();
+					} else {
+						continue;
+					}
+				}
+			}
+		}
+
+		// sort the map so the lines covered the least are on top
+		Map<Integer, Integer> sortedModifiedLines = modifiedLines.entrySet().stream()
+				.sorted(Map.Entry.comparingByValue(Comparator.naturalOrder()))
+				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+						(oldValue, newValue) -> oldValue, LinkedHashMap::new));
+
+		for (Map.Entry<Integer, Integer> line : sortedModifiedLines.entrySet()) {
+            Test selectedTest = possibleTests.stream()
+                    .filter(test -> test.getLineCoverage().getLinesCovered().contains(line))
+                    .findFirst().orElse(null);
+            if (selectedTest != null) {
+                return selectedTest.getId();
+            }
+		}
+
+		return -1;
 	}
 
 	private int getTestIdByKillcount(List<Test> possibleTests) {
 		Collections.sort(possibleTests, new TestComparator());
-		List<Mutant> aliveMutants = game.getAliveMutants();
+		List<Mutant> aliveMutants = multiplayerGame.getAliveMutants();
 		aliveMutants.sort(Collections.reverseOrder(Comparator.comparing(Mutant::getScore)));
 
 		// HashMap Key: mutantId, Value: List of Tests that cover this Mutant
@@ -186,67 +226,82 @@ public class AiDefender extends AiPlayer {
 				}
 			}
 		}
-		// mutantCoveredByTests.entrySet().stream().filter(entry -> entry.getValue().size());
 
-		// brauche für einen mutanten alle tests die ihn covern
-		int bestTestId;
+		// only try to kill one of the top x(=5 for now) or else the move might take too long
+		int skipAiDefenderMove = 0;
 		for (Mutant aliveMutant : aliveMutants) {
 			if (mutantCoveredByTests.containsKey(aliveMutant.getId())) {
+				// counter to only try a certain amount of tests on one mutant
+				int skipMutantCounter = 0;
 				for (Test test : mutantCoveredByTests.get(aliveMutant.getId())) {
-					// defender score not getting updated bugira
-                    boolean takeTest = MutationTester.testOnMutant(multiplayerGame, test, aliveMutant);
-					System.out.println("takeTEST: " + takeTest);
+					// the test does not kill the mutant here. it is only checked if the test would kill it
+                    boolean takeTest = MutationTester.testOnMutantWithoutKilling(multiplayerGame, test, aliveMutant);
 					if (takeTest) {
-						System.out.println("should actually exit on kill");
-						bestTestId = test.getId();
-						return bestTestId;
+						return test.getId();
 					}
+					if (skipMutantCounter > 5) {
+						break;
+					}
+					++skipMutantCounter;
 				}
 			}
+			if (skipAiDefenderMove > 5) {
+				return -1;
+			}
+			++skipAiDefenderMove;
 		}
-
 		return -1;
-		// int n = PrepareAI.biasedSelection(possibleTests.size(), 0.6);
-		// return possibleTests.get(n).getId();
 	}
 
 	private int getTestIdByRandom(List<Test> possibleTests) {
 		Random r = new Random();
-		System.out.println("RANDOM" + r.nextInt(possibleTests.size()));
 		Test selected = possibleTests.get(r.nextInt(possibleTests.size()));
 		return selected.getId();
 	}
 
-	private void useTestFromSuite(int origTestNum) throws NoDummyGameException{
-		GameClass cut = game.getCUT();
-		DuelGame dummyGame = cut.getDummyGame();
-		List<Test> origTests = dummyGame.getTests();
+	private void useTestFromSuite(int origTestNum) throws NoDummyGameException {
+		if (origTestNum != -1) {
+			GameClass cut = game.getCUT();
+			DuelGame dummyGame = cut.getDummyGame();
+			List<Test> origTests = DatabaseAccess.getTestsForGame(dummyGame.getId());
 
-		Test origTest = null;
+			Test origTest = null;
 
-		for (Test t : origTests) {
-			if(t.getId() == origTestNum) {
-				origTest = t;
-				break;
+			for (Test t : origTests) {
+				if (t.getId() == origTestNum) {
+					origTest = t;
+					break;
+				}
 			}
-		}
 
-		if(origTest != null) {
-			String jFile = origTest.getJavaFile();
-			String cFile = origTest.getClassFile();
-			int playerId = DatabaseAccess.getPlayerIdForMultiplayerGame(ID, game.getId());
-			Test t = new Test(game.getId(), jFile, cFile, playerId);
-			System.out.println("jfile of t " + t.getJavaFile());
-			t.insert(false);
-			t.update();
-			TargetExecution newExec = new TargetExecution(t.getId(), 0, TargetExecution.Target.COMPILE_TEST, "SUCCESS", null);
-			newExec.insert();
-			MutationTester.runTestOnAllMultiplayerMutants(multiplayerGame, t, messages);
-			DatabaseAccess.setAiTestAsUsed(origTestNum, game);
-			File dir = new File(origTest.getDirectory());
-			AntRunner.testOriginal(dir, t);
-			multiplayerGame.update();
-			getMessagesLastTurn();
+			if (origTest != null) {
+				String jFile = origTest.getJavaFile();
+				if (origTest.getClassFile() == null) {
+					origTest = AntRunner.recompileTest(origTest.getId(), cut);
+				}
+
+				String cFile = origTest.getClassFile();
+				int playerId = DatabaseAccess.getPlayerIdForMultiplayerGame(ID, game.getId());
+				Test t = new Test(game.getId(), jFile, cFile, playerId);
+				File dir = new File(origTest.getDirectory());
+				t.insert(false);
+				t.setLineCoverage(origTest.getLineCoverage());
+				t.update();
+
+				// Insert target executions since the tests have already been compiled when the players submitted them
+				// There might be issues with the compiled tests but when the class is not compiled it was
+				// recompiled in line 247 (theoretically this could also go wrong but then it just won't score)
+				TargetExecution newExec = new TargetExecution(t.getId(), 0, TargetExecution.Target.COMPILE_TEST, "SUCCESS", null);
+				newExec.insert();
+				TargetExecution testExecution = new TargetExecution(t.getId(), 0, TargetExecution.Target.TEST_ORIGINAL, "SUCCESS", null);
+				testExecution.insert();
+				MutationTester.runTestOnAllMultiplayerMutants(multiplayerGame, t, messages);
+				DatabaseAccess.setAiTestAsUsed(origTestNum, game);
+				multiplayerGame.update();
+				getMessagesLastTurn();
+			}
+		} else {
+			logger.info("Ai Defender did not find a Test to use from the TestPool.");
 		}
 	}
 

@@ -29,6 +29,7 @@ import org.codedefenders.game.GameState;
 import org.codedefenders.game.Mutant;
 import org.codedefenders.game.Role;
 import org.codedefenders.game.Test;
+import org.codedefenders.game.singleplayer.AiPlayer;
 import org.codedefenders.model.Event;
 import org.codedefenders.model.EventStatus;
 import org.codedefenders.model.EventType;
@@ -36,7 +37,6 @@ import org.codedefenders.model.User;
 import org.codedefenders.validation.code.CodeValidatorLevel;
 import org.codedefenders.validation.input.CheckDateFormat;
 
-import javax.xml.crypto.Data;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;
@@ -72,6 +72,10 @@ public class MultiplayerGame extends AbstractGame {
 	private boolean chatEnabled;
 	private CodeValidatorLevel mutantValidatorLevel;
 	private boolean markUncovered;
+	// newly created games will have an ID of -10 which refers to no game
+	// the next two params help to get the evaluation done for a large number of simulation games
+	private int originGameId = -10;
+	private AiPlayer.GenerationMethod aiStrat = null;
 
 	public MultiplayerGame(int classId, int creatorId, GameLevel level,
 						   float lineCoverage, float mutantCoverage, float prize,
@@ -130,6 +134,14 @@ public class MultiplayerGame extends AbstractGame {
 
 	public int getMinDefenders() {
 		return minDefenders;
+	}
+
+	public void setDefenderLimit(int defenderLimit) {
+		this.defenderLimit = defenderLimit;
+	}
+
+	public void setAttackerLimit(int attackerLimit) {
+		this.attackerLimit = attackerLimit;
 	}
 
 	public void setId(int id) {
@@ -309,14 +321,14 @@ public class MultiplayerGame extends AbstractGame {
 		}
 	}
 
-
 	public boolean insert() {
 		// Attempt to insert game info into database
 		String query = "INSERT INTO games " +
 				"(Class_ID, Level, Prize, Defender_Value, Attacker_Value, Coverage_Goal, Mutant_Goal, Creator_ID, " +
 				"Attackers_Needed, Defenders_Needed, Attackers_Limit, Defenders_Limit, Start_Time, Finish_Time, State, Mode," +
-				"MaxAssertionsPerTest, ChatEnabled, MutantValidator, MarkUncovered, IsSimulationGame) VALUES " +
-				"(?, ?, ?, ?, ?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, 'PARTY',?,?,?,?,?);";
+				"MaxAssertionsPerTest, ChatEnabled, MutantValidator, MarkUncovered, IsSimulationGame, SimulationOriginGame_ID," +
+				"AiStrat) VALUES " +
+				"(?, ?, ?, ?, ?, ?, ?, ?,?, ?, ?, ?, ?, ?, ?, 'PARTY',?,?,?,?,?,?,?);";
 		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(classId), DB.getDBV(level.name()),
 				DB.getDBV(prize), DB.getDBV(defenderValue), DB.getDBV(attackerValue),
 				DB.getDBV(lineCoverage), DB.getDBV(mutantCoverage), DB.getDBV(creatorId),
@@ -324,7 +336,8 @@ public class MultiplayerGame extends AbstractGame {
 				DB.getDBV(defenderLimit), DB.getDBV(new Timestamp(startDateTime)),
 				DB.getDBV(new Timestamp(finishDateTime)), DB.getDBV(state.name()),
 				DB.getDBV(maxAssertionsPerTest), DB.getDBV(chatEnabled), DB.getDBV(mutantValidatorLevel.name()),
-				DB.getDBV(markUncovered), DB.getDBV(isSimulationGame)};
+				DB.getDBV(markUncovered), DB.getDBV(isSimulationGame), DB.getDBV(originGameId),
+				DB.getDBV(aiStrat == null ? null : aiStrat.name())};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		int res = DB.executeUpdateGetKeys(stmt, conn);
@@ -486,6 +499,22 @@ public class MultiplayerGame extends AbstractGame {
 			totalScore += m.getDefenderPoints();
 		logger.debug("Defender Score: " + totalScore);
 		return totalScore;
+	}
+
+	public void setAiStrat(AiPlayer.GenerationMethod aiStrat) {
+		this.aiStrat = aiStrat;
+	}
+
+	public AiPlayer.GenerationMethod getAiStrat() {
+		return aiStrat;
+	}
+
+	public int getOriginGameId() {
+		return originGameId;
+	}
+
+	public void setOriginGameId(int originGameId) {
+		this.originGameId = originGameId;
 	}
 
 	public boolean isLineCovered(int lineNumber) {

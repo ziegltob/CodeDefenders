@@ -57,6 +57,9 @@
     <li class="<%=active(activePage,"adminSimulationGames")%>">
         <a id="adminSimulationGames" href="<%=request.getContextPath()%>/admin/simulation">Simulation Games</a>
     </li>
+    <li class="<%=active(activePage,"adminSimulatedGames")%>">
+        <a id="adminSimulatedGames" href="<%=request.getContextPath()%>/admin/simulated">Simulated Games</a>
+    </li>
     <li class="<%=active(activePage,"adminUserMgmt")%>">
         <a id="adminUserMgmt" href="<%=request.getContextPath()%>/admin/users">Manage Users</a>
     </li>

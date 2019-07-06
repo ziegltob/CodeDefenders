@@ -67,8 +67,17 @@ public class AdminDAO {
     private static final String FINISHED_MULTIPLAYER_GAMES_BY_USER_QUERY =
             "SELECT *\n" +
                     "FROM games\n" +
-                    "   INNER JOIN players ON players.Game_ID = games.ID\n" +
-                    "WHERE Mode = 'PARTY' AND State = 'FINISHED' AND Creator_ID = ? AND IsSimulationGame = false\n" +
+                    "   INNER JOIN players ON players.Game_ID = games.ID \n" +
+                    "WHERE Mode = 'PARTY' AND State = 'FINISHED' AND Creator_ID = ? AND IsSimulationGame = false \n" +
+                    "AND (SimulationOriginGame_ID IS NULL OR SimulationOriginGame_ID = -10) \n" +
+                    "GROUP BY games.ID;";
+
+    private static final String SIMULATED_GAMES_BY_USER =
+            "SELECT *\n" +
+                    "FROM games\n" +
+                    "   INNER JOIN players ON players.Game_ID = games.ID \n" +
+                    "WHERE Mode = 'PARTY' AND State = 'FINISHED' AND Creator_ID = ? AND IsSimulationGame = true \n" +
+                    "AND (SimulationOriginGame_ID IS NOT NULL AND AiStrat IS NOT NULL) \n" +
                     "GROUP BY games.ID;";
 
     private static final String SIMULATION_MULTIPLAYER_GAMES_BY_USER_QUERY =
@@ -395,11 +404,16 @@ public class AdminDAO {
         return getGamesFromRS(rs, conn, stmt);
     }
 
+    public static List<MultiplayerGame> getSimulatedGamesByCreator(int userID) {
+        Connection conn = DB.getConnection();
+        PreparedStatement stmt = DB.createPreparedStatement(conn, SIMULATED_GAMES_BY_USER, DB.getDBV(userID));
+        return DatabaseAccess.getMultiplayerGames(stmt, conn);
+    }
+
     public static List<MultiplayerGame> getMultiplayerSimulationGamesCreatedBy(int userID) {
         Connection conn = DB.getConnection();
         PreparedStatement stmt = DB.createPreparedStatement(conn, SIMULATION_MULTIPLAYER_GAMES_BY_USER_QUERY, DB.getDBV(userID));
-        ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
-        return getGamesFromRS(rs, conn, stmt);
+        return DatabaseAccess.getMultiplayerGames(stmt, conn);
     }
 
 

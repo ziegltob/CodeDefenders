@@ -51,22 +51,17 @@
     } else {
     %>
     <table id="tableFinishedGames"
-           class="table-hover table-striped table-responsive table-paragraphs games-table display table-condensed">
+           class="table-hover table-striped table-responsive table-paragraphs games-table display table-condensed dataTable">
         <thead>
         <tr style="border-bottom: 1px solid black">
-            <th><input type="checkbox" id="selectAllGames"
-                       onchange="document.getElementById('start_games_btn').disabled = !this.checked;
-                           document.getElementById('stop_games_btn').disabled = !this.checked">
-            </th>
             <th>ID</th>
             <th></th>
             <th>Class</th>
             <th>Creator</th>
             <th>Attackers</th>
             <th>Defenders</th>
-            <th>Level</th>
-            <th>Starting</th>
-            <th>Finishing</th>
+            <th>Start</th>
+            <th>End</th>
             <th>
                 <a id="togglePlayersActive" class="btn btn-sm btn-default" title="Show list of Players for each Game.">
                     <span id="togglePlayersActiveSpan" class="glyphicon glyphicon-alert"></span>
@@ -82,18 +77,11 @@
                         "glyphicon glyphicon-stop" : "glyphicon glyphicon-play";
                 String startStopButtonClass = g.getState().equals(GameState.ACTIVE) ?
                         "btn btn-sm btn-danger" : "btn btn-sm btn-primary";
-                String startStopButtonAction = g.getState().equals(GameState.ACTIVE) ?
-                        "return confirm('Are you sure you want to stop this Game?');" : "";
+                String createSimulationGame = "return confirm('Are you sure you want to create" +
+                        " a Simulation Game of this Game?');";
                 int gameId = g.getId();
         %>
         <tr style="border-top: 1px solid lightgray; border-bottom: 1px solid lightgray" id="<%="game_row_"+gameId%>">
-            <td>
-                <input type="checkbox" name="selectedGames" id="<%="selectedGames_"+gameId%>" value="<%= gameId%>"
-                       onchange=
-                               "document.getElementById('start_games_btn').disabled = !areAnyChecked('selectedGames');
-                            document.getElementById('stop_games_btn').disabled = !areAnyChecked('selectedGames');
-                            setSelectAllCheckbox('selectedGames', 'selectAllGames')">
-            </td>
             <td><%= gameId %>
             </td>
             <td>
@@ -133,18 +121,19 @@
             <td class="col-sm-1"><%int defenders = g.getDefenderIds().length; %><%=defenders %> of
                     <%=g.getMinDefenders()%>&ndash;<%=g.getDefenderLimit()%>
             </td>
-            <td><%= g.getLevel().name() %>
-            </td>
             <td class="col-sm-2"><%= g.getStartDateTime() %>
             </td>
             <td class="col-sm-2"><%= g.getFinishDateTime() %>
             </td>
             <td class="col-sm-1" style="padding-top:4px; padding-bottom:4px">
-                <button class="<%=startStopButtonClass%>" type="submit" value="<%=gameId%>" name="start_stop_btn"
-                        onclick="<%=startStopButtonAction%>" id="<%="start_stop_"+g.getId()%>">
-                    <span class="<%=startStopButtonIcon%>"></span>
-
-                </button>
+                <form id="createSimulationGameForm" action="admin/modify" method="post">
+                    <button class="btn btn-sm" value="<%=gameId%>"
+                            onclick="return confirm('This will create a Simulation Game of this game.');"
+                            id="<%="createSimulationGame"+gameId%>"
+                            name="createSimulationGameButton">Create Simulation
+                    </button>
+                    <input type="hidden" name="formType" value="createSimulationGame">
+                </form>
             </td>
                 <%List<List<String>> playersInfo = AdminDAO.getPlayersInfo(gameId);
                 if(!playersInfo.isEmpty()){%>
@@ -152,41 +141,9 @@
             <th colspan="3">Game Score</th>
             <th style="border-bottom: 1px solid black">Name</th>
             <th style="border-bottom: 1px solid black">Submissions</th>
-            <th style="border-bottom: 1px solid black">Last Action</th>
             <th style="border-bottom: 1px solid black">Points</th>
             <th style="border-bottom: 1px solid black">Total Score</th>
             <th style="border-bottom: 1px solid black"></th>
-            <th style="border-bottom: 1px solid black">
-                <form id="adminModifyAiAttacker" action="admin/modify" method="post">
-                    <% boolean aiAtkJoinedGame = DatabaseAccess.getJoinedMultiplayerGamesForUser(AiAttacker.ID).stream()
-                            .filter(joinedGames -> joinedGames.getId() == gameId)
-                            .findFirst().isPresent();
-                        if (!aiAtkJoinedGame) { %>
-                    <button class="btn btn-sm" value="<%=gameId%>"
-                            id="<%="add_ai_attacker_to_game_" + gameId%>"
-                            name="gameAddAiAttacker">Add Ai-Attacker
-                    </button>
-                    <input type="hidden" name="formType" value="addAiAttacker">
-                    <% } else { %>
-
-                    <% } %>
-                </form>
-                <br>
-                <form id="adminModifyAiDefender" action="admin/modify" method="post">
-                    <% boolean aiDefJoinedGame = DatabaseAccess.getJoinedMultiplayerGamesForUser(AiDefender.ID).stream()
-                            .filter(joinedGames -> joinedGames.getId() == gameId)
-                            .findFirst().isPresent();
-                        if (!aiDefJoinedGame) { %>
-                    <button class="btn btn-sm" value="<%=gameId%>"
-                            id="<%="add_ai_defender_to_game_" + gameId%>"
-                            name="gameAddAiDefender">Add Ai-Defender
-                    </button>
-                    <input type="hidden" name="formType" value="addAiDefender">
-                    <% } else { %>
-
-                    <% } %>
-                </form>
-            </th>
         </tr>
         <%
             }
@@ -198,23 +155,18 @@
             int gameScoreDefense = 0;
 
             for (List<String> playerInfo : playersInfo) {
-                if (Role.ATTACKER.equals(Role.valueOf(playerInfo.get(2)))) {
-                    gameScoreAttack = gameScoreAttack + Integer.parseInt(playerInfo.get(4));
-                } else if (Role.DEFENDER.equals(Role.valueOf(playerInfo.get(2)))) {
-                    gameScoreDefense = gameScoreDefense + Integer.parseInt(playerInfo.get(4));
-                }
-            }
-
-            for (List<String> playerInfo : playersInfo) {
                 int playerId = Integer.parseInt(playerInfo.get(0));
                 String userName = playerInfo.get(1);
                 Role role = Role.valueOf(playerInfo.get(2));
-                String ts = playerInfo.get(3);
-                String lastSubmissionTS = AdminDAO.TIMESTAMP_NEVER.equalsIgnoreCase(ts) ? ts : AdminCreateGames.formatTimestamp(ts);
                 int totalScore = Integer.parseInt(playerInfo.get(4));
                 int submissionsCount = Integer.parseInt(playerInfo.get(5));
                 String color = role == Role.ATTACKER ? "#edcece" : "#ced6ed";
-                int gameScore = AdminCreateGames.getPlayerScore(g, playerId);
+                int playerScore = AdminCreateGames.getPlayerScore(g, playerId);
+                if (Role.ATTACKER.equals(Role.valueOf(playerInfo.get(2)))) {
+                    gameScoreAttack += playerScore;
+                } else if (Role.DEFENDER.equals(Role.valueOf(playerInfo.get(2)))) {
+                    gameScoreDefense += playerScore;
+                }
         %>
         <tr style="height: 3px;" id="playersTableActive" hidden></tr>
         <tr id="playersTableActive" hidden>
@@ -236,9 +188,7 @@
             </td>
             <td style="background: <%= color %>"><%= submissionsCount %>
             </td>
-            <td style="background: <%= color %>"><%= lastSubmissionTS %>
-            </td>
-            <td style="background: <%= color %>"><%= gameScore %>
+            <td style="background: <%= color %>"><%= playerScore %>
             </td>
             <td style="background: <%= color %>"><%= totalScore %>
             </td>
@@ -249,8 +199,8 @@
                 <form id="games" action="admin/modify" method="post">
                     <button class="btn btn-sm btn-danger" value="<%=playerId + "-" + gameId%>"
                     onclick="return confirm('This will create a new game without the actions of this player');"
-                    id="<%="remove_player_"+playerId+"from_game_"+gameId%>"
-                    name="gameUserRemoveButton">Remove
+                    id="<%="removePlayer"+playerId+"fromGame"+gameId%>"
+                    name="gameUserRemoveButton">Replace
                     </button>
                     <input type="hidden" name="formType" value="removePlayer">
                 </form>
@@ -260,6 +210,7 @@
         <% } %>
         </tbody>
     </table>
+
     <br/>
     <button class="btn btn-md btn-primary" type="submit" name="games_btn" id="start_games_btn"
             disabled value="Start Games">
@@ -326,6 +277,9 @@
                 $("[id=playersTableCreated]").show();
                 $("[id=playersTableHidden]").hide();
             }
+
+            $('#tableFinishedGames').DataTable();
+            $('.dataTables_length').addClass('bs-select');
 
             setActivePlayersSpan();
 

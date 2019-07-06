@@ -34,12 +34,15 @@
         <script>
             function validateForm() {
                 var form = document.forms['changeSettings'];
+                var aiStrat = form["<%=AdminSystemSettings.SETTING_NAME.AI_STRAT.name()%>"];
                 var mailEnabled = form["<%=AdminSystemSettings.SETTING_NAME.EMAILS_ENABLED.name()%>"].checked;
                 var address = form["<%=AdminSystemSettings.SETTING_NAME.EMAIL_ADDRESS.name()%>"];
                 var password = form["<%=AdminSystemSettings.SETTING_NAME.EMAIL_PASSWORD.name()%>"];
                 var smtpHost = form["<%=AdminSystemSettings.SETTING_NAME.EMAIL_SMTP_HOST.name()%>"];
                 var smtpPort = form["<%=AdminSystemSettings.SETTING_NAME.EMAIL_SMTP_PORT.name()%>"];
 
+                (aiStrat.value === "KILLCOUNT" || aiStrat.value === "RANDOM" || aiStrat.value === "COVERAGE") ?
+                    aiStrat.parentElement.style.border = '0px' : aiStrat.parentElement.style.border = "1px solid red";
                 if (mailEnabled) {
                     if (address.value === "") {
                         address.parentElement.style.border = "1px solid red";
@@ -59,13 +62,14 @@
                         smtpPort.parentElement.style.border ='0px';
                     }
 
-                    return address.value !== "" && smtpHost.value !== "" && smtpPort.value !== 0;
+                    return address.value !== "" && smtpHost.value !== "" && smtpPort.value !== 0
+                        && (aiStrat.value === "KILLCOUNT" || aiStrat.value === "RANDOM" || aiStrat.value === "COVERAGE");
                 } else {
                     address.parentElement.style.border = '0px';
                     password.parentElement.style.border ='0px';
                     smtpHost.parentElement.style.border ='0px';
                     smtpPort.parentElement.style.border ='0px';
-                    return true;
+                    return (aiStrat.value === "KILLCOUNT" || aiStrat.value === "RANDOM" || aiStrat.value === "COVERAGE");
                 }
             }
         </script>

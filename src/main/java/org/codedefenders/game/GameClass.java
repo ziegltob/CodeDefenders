@@ -519,6 +519,10 @@ public class GameClass {
 		return linesOfNonCoverableCode;
 	}
 
+	public List<Range<Integer>> getLinesOfMethods() {
+		return linesOfMethods;
+	}
+
 	/**
 	 * Return the lines which correspond to Compile Time Constants. Mutation of those lines requries the tests to be recompiled against the mutant
 	 * @return

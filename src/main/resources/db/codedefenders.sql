@@ -40,7 +40,8 @@ INSERT INTO settings (name, type, STRING_VALUE, INT_VALUE, BOOL_VALUE) VALUES
   ('EMAIL_ADDRESS', 'STRING_VALUE', '', NULL, NULL),
   ('EMAILS_ENABLED', 'BOOL_VALUE', NULL, NULL, FALSE),
   ('DEBUG_MODE', 'BOOL_VALUE', NULL, NULL, FALSE),
-  ('EMAIL_PASSWORD', 'STRING_VALUE', '', NULL, NULL);
+  ('EMAIL_PASSWORD', 'STRING_VALUE', '', NULL, NULL),
+  ('AI_STRAT', 'STRING_VALUE', '', NULL, NULL);
 
 --
 -- Table structure for table `ratings`
@@ -133,6 +134,8 @@ CREATE TABLE `games` (
   `RequiresValidation` TINYINT(1) DEFAULT '0' NOT NULL,
   `IsAIDummyGame` TINYINT(1) DEFAULT '0' NOT NULL,
   `IsSimulationGame` TINYINT(1) DEFAULT '0' NOT NULL,
+  `SimulationOriginGame_ID` int(11) DEFAULT NULL,
+  `AiStrat` enum('KILLCOUNT','RANDOM','COVERAGE') DEFAULT NULL,
   `HasKillMap` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`ID`),
   KEY `fk_creatorId_idx` (`Creator_ID`),

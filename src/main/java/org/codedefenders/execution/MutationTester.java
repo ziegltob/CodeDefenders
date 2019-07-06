@@ -444,75 +444,83 @@ public class MutationTester {
         notif.insert();
     }
 
-	public static boolean testOnMutant(MultiplayerGame game, Test test, Mutant mutant) {
-		boolean killed = testVsMutant(test, mutant);
-		List<Mutant> killedMutants = new ArrayList<Mutant>();
-		if (killed) {
-			killedMutants.add(mutant);
-		} else {
-			// mutant is still alive
-			ArrayList<Test> missedTests = new ArrayList<Test>();
+	/**
+	 * This method is used for the AiAttacker to determine if a mutant survives all the tests.
+     * The AiAttacker can try out several mutants without scoring and then take the best one.
+     *
+	 * @param game
+	 * @param mutant
+	 * @return returns true when the mutant is killed and false when it survives
+	 */
+	public static boolean runAllTestsOnMutantWithoutScoring(MultiplayerGame game, Mutant mutant) {
+		List<Test> tests = game.getTests(true); // executable tests submitted by defenders
 
-			for (int lm : mutant.getLines()) {
-				boolean found = false;
-				for (int lc : test.getLineCoverage().getLinesCovered()) {
-					if (lc == lm) {
-						found = true;
-						missedTests.add(test);
-					}
-				}
-				if (found) {
-					break;
-				}
+        boolean killed = false;
+		for (Test test : tests) {
+			if (useMutantCoverage && !test.isMutantCovered(mutant)) {
+				logger.info("Skipping non-covered mutant " + mutant.getId() + ", test " + test.getId());
+				continue;
 			}
-			// mutant.setScore(Scorer.score(game, mutant, missedTests));
-			// mutant.update();
-			mutant.incrementScore(Scorer.score(game, mutant, missedTests));
+			killed = testOnMutantWithoutKilling(game, test, mutant);
+			if (killed) {
+				logger.info("Test {} kills mutant {}", test.getId(), mutant.getId());
+				return true; // return as soon as a test kills the mutant
+			}
 		}
-
-		// test.setScore(Scorer.score(game, test, killedMutants));
-		// test.update();
-		test.incrementScore(Scorer.score(game, test, killedMutants));
-
-		 /*if (killed == 0)
-			if (mutants.size() == 0)
-			messages.add(TEST_SUBMITTED_MESSAGE);
-			else
-					messages.add(TEST_KILLED_ZERO_MESSAGE);
-		else {
-		Event notif = new Event(-1, game.getId(), u.getId(),
-				u.getUsername() + "&#39;s test kills " + killed + " " + "mutants.",
-				EventType.DEFENDER_KILLED_MUTANT, EventStatus.GAME, new Timestamp(System.currentTimeMillis()));
-		notif.insert();
-		if (killed == 1) {
-			if (mutants.size() == 1)
-				messages.add(TEST_KILLED_LAST_MESSAGE);
-			else
-				messages.add(TEST_KILLED_ONE_MESSAGE);
-		} else {
-			messages.add(String.format(TEST_KILLED_N_MESSAGE, killed));
-		}*/
 		return killed;
 	}
 
-    /**
-     * Returns {@code true} iff {@code test} kills {@code mutant}.
-     *
-     * @param test
-     * @param mutant
-     * @return
-     */
-    private static boolean testVsMutant(Test test, Mutant mutant) {
+	public static boolean testOnMutantWithoutKilling(MultiplayerGame game, Test test, Mutant mutant) {
 		TargetExecution execution = DatabaseAccess.getTargetExecutionForPair(test.getId(), mutant.getId());
-        if (execution == null) {
-            // Run the test against the mutant and get the result
-            TargetExecution executedTarget = AntRunner.testMutant(mutant, test);
-            return didTestKillMutant(executedTarget, mutant, test);
+		if (execution == null) {
+			// Run the test against the mutant and get the result
+			execution = AntRunner.testMutant(mutant, test);
 		} else {
 			// this is for the ai trying out multiple tests on a mutant to check if they kill the mutant
 			logger.info("There is already an execution result for (m: {},t: {})", mutant.getId(), test.getId());
-			return didTestKillMutant(execution, mutant, test);
 		}
+		if (execution.status.equals("FAIL") || execution.status.equals("ERROR")) {
+			if (mutant.isAlive()) {
+				logger.info("Test {} kills Mutant {}", test.getId(), mutant.getId());
+				return true;
+			} else {
+				logger.info("Test {} would have killed Mutant {}, but Mutant {} was alredy dead!", test.getId(), mutant.getId(), mutant.getId());
+				// this was false before because the mutant was already dead but it should return true since he is dead anyways
+                return true;
+			}
+		} else {
+			logger.debug("Test {} did not kill Mutant {}", test.getId(), mutant.getId());
+			return false;
+		}
+	}
+
+	/**
+	 * Runs a test against a mutant.
+	 *
+	 * @param test
+	 * @param mutant
+	 * @return {@code true} if the test killed the mutant, {@code false} otherwise
+	 */
+	private static boolean testVsMutant(Test test, Mutant mutant) {
+		if (DatabaseAccess.getTargetExecutionForPair(test.getId(), mutant.getId()) != null) {
+			logger.error("Execution result found for Mutant {} and Test {}.", mutant.getId(), test.getId());
+			return false;
+		}
+		final TargetExecution executedTarget = AntRunner.testMutant(mutant, test);
+
+		// If the test did NOT pass, the mutant was detected and should be killed.
+		if (!executedTarget.status.equals("FAIL") && !executedTarget.status.equals("ERROR")) {
+			logger.debug("Test {} did not kill Mutant {}", test.getId(), mutant.getId());
+			return false;
+		}
+		if (!mutant.kill(ASSUMED_NO)) {
+			logger.info("Test {} would have killed Mutant {}, but Mutant {} was already dead!", test.getId(), mutant.getId(), mutant.getId());
+			return false;
+		}
+
+		logger.info("Test {} killed Mutant {}", test.getId(), mutant.getId());
+		test.killMutant();
+		return true;
 	}
 
 	private static boolean didTestKillMutant(TargetExecution executedTarget, Mutant mutant, Test test) {

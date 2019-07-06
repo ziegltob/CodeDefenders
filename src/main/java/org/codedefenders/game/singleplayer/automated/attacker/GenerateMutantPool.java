@@ -1,5 +1,6 @@
 package org.codedefenders.game.singleplayer.automated.attacker;
 
+import com.sun.org.apache.xpath.internal.operations.Mult;
 import org.codedefenders.database.DatabaseAccess;
 import org.codedefenders.execution.AntRunner;
 import org.codedefenders.execution.TargetExecution;
@@ -7,6 +8,7 @@ import org.codedefenders.game.AbstractGame;
 import org.codedefenders.game.GameClass;
 import org.codedefenders.game.Mutant;
 import org.codedefenders.game.duel.DuelGame;
+import org.codedefenders.game.multiplayer.MultiplayerGame;
 import org.codedefenders.util.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,17 +44,16 @@ public class GenerateMutantPool {
     }
 
     public boolean generateMutants() throws NoMutantsException {
-        List<DuelGame> gamesWithCUT = DatabaseAccess.getGamesForClass(cId);
+        List<MultiplayerGame> gamesWithCUT = DatabaseAccess.getGamesForClass(cId);
         ArrayList<String> mutantStrings = new ArrayList<>();
-        for (DuelGame game : gamesWithCUT) {
+        for (MultiplayerGame game : gamesWithCUT) {
             List<Mutant> mutantsForGame = game.getMutants();
             for (Mutant mutant : mutantsForGame) {
                 mutantStrings.add(mutant.getAsString());
             }
         }
-        validMutants = new ArrayList<Mutant>();
+        validMutants = new ArrayList<>();
         try {
-            System.out.println("size:" + mutantStrings.size());
             for (String mutantString : mutantStrings) {
                 File newMutantDir = FileUtils.getNextSubDir(AI_DIR + F_SEP + "mutants" +
                         F_SEP + cut.getAlias());

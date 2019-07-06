@@ -21,6 +21,7 @@ package org.codedefenders.database;
 import org.codedefenders.execution.KillMap;
 import org.codedefenders.game.*;
 import org.codedefenders.game.duel.DuelGame;
+import org.codedefenders.game.singleplayer.AiPlayer;
 import org.codedefenders.model.Event;
 import org.codedefenders.model.EventStatus;
 import org.codedefenders.model.EventType;
@@ -354,6 +355,25 @@ public class DatabaseAccess {
         return isActive;
     }
 
+	public static Integer getSimulationOriginGame(int gameId) {
+		String query = "SELECT * FROM games WHERE ID=?;";
+		Connection conn = DB.getConnection();
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gameId));
+		try {
+			ResultSet rs = stmt.executeQuery();
+			if (rs.next()) {
+				return rs.getInt("SimulationOriginGame_ID");
+			}
+		} catch (SQLException se) {
+			logger.error("SQL exception caught", se);
+		} catch (Exception e) {
+			logger.error("Exception caught", e);
+		} finally {
+			DB.cleanup(conn, stmt);
+		}
+		return null;
+	}
+
 	private static ArrayList<Event> getEvents(PreparedStatement stmt, Connection conn) {
 		ArrayList<Event> events = new ArrayList<Event>();
 		try {
@@ -572,7 +592,7 @@ public class DatabaseAccess {
 
 	public static List<MultiplayerGame> getMultiplayerGamesForUser(int userId) {
 		String query = "SELECT DISTINCT m.* FROM games AS m LEFT JOIN players AS p ON p.Game_ID=m.ID  AND p.Active=TRUE" +
-				" WHERE m.Mode = 'PARTY' AND (p.User_ID=? OR m.Creator_ID=?) AND m.State != 'FINISHED' AND m.IsSimulationGame = 0;";
+				" WHERE m.Mode = 'PARTY' AND (p.User_ID=? OR m.Creator_ID=?) AND m.State != 'FINISHED' AND m.IsSimulationGame = FALSE;";
 		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(userId),
 				DB.getDBV(userId)};
 		Connection conn = DB.getConnection();
@@ -597,7 +617,8 @@ public class DatabaseAccess {
 				+ "WHERE g.Mode='PARTY' AND g.Creator_ID!=? AND (g.State='CREATED' OR g.State='ACTIVE')\n"
 				+ "AND (g.RequiresValidation=FALSE OR (? IN (SELECT User_ID FROM users WHERE Validated=TRUE)))\n"
 				+ "AND g.ID NOT IN (SELECT g.ID FROM games g INNER JOIN players p ON g.ID=p.Game_ID WHERE p.User_ID=? AND p.Active=TRUE)\n"
-				+ "AND (nplayers.nAttackers < g.Attackers_Limit OR nplayers.nDefenders < g.Defenders_Limit);";
+				+ "AND (nplayers.nAttackers < g.Attackers_Limit OR nplayers.nDefenders < g.Defenders_Limit)\n"
+				+ "AND g.IsSimulationGame = FALSE;";
 		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(userId),
 				DB.getDBV(userId),
 				DB.getDBV(userId)};
@@ -739,6 +760,10 @@ public class DatabaseAccess {
 						rs.getInt("MaxAssertionsPerTest"),rs.getBoolean("ChatEnabled"),
 						CodeValidatorLevel.valueOf(rs.getString("MutantValidator")), rs.getBoolean("MarkUncovered"));
 				mg.setId(rs.getInt("ID"));
+				mg.setOriginGameId(rs.getInt("SimulationOriginGame_ID"));
+				if (rs.getString("AiStrat") != null) {
+					mg.setAiStrat(AiPlayer.GenerationMethod.valueOf(rs.getString("AiStrat")));
+				}
 				gameList.add(mg);
 			}
 		} catch (SQLException se) {
@@ -752,8 +777,13 @@ public class DatabaseAccess {
 	}
 
 
-	public static List<Mutant> getMutantsForGameWithoutOnePlayer(int gameId, int playerId) {
-		String query = "SELECT * FROM mutants WHERE Game_ID=? AND Player_ID!=?;";
+	public static List<Mutant> getNonEquivalentMutantsForGameWithoutOnePlayer(int gameId, int playerId) {
+		String query = "SELECT * " +
+				"FROM mutants " +
+				"WHERE Game_ID=? " +
+				"AND Player_ID!=? " +
+				"AND (mutants.Equivalent = 'ASSUMED_NO' OR mutants.Equivalent = 'PROVEN_NO') " +
+				"AND ClassFile IS NOT NULL;";
 		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
 				DB.getDBV(playerId)};
 		Connection conn = DB.getConnection();
@@ -767,6 +797,18 @@ public class DatabaseAccess {
 				"LEFT JOIN players ON players.ID=mutants.Player_ID ",
 				"LEFT JOIN users ON players.User_ID = users.User_ID ",
 				"WHERE mutants.Game_ID=? AND mutants.ClassFile IS NOT NULL ",
+				"ORDER BY Timestamp;");
+		Connection conn = DB.getConnection();
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gid));
+		return getMutants(stmt, conn);
+	}
+
+	public static List<Mutant> getMutantsForGameWithoutEquivalents(int gid) {
+		String query = String.join("\n",
+				"SELECT * FROM mutants ",
+				"LEFT JOIN players ON players.ID=mutants.Player_ID ",
+				"LEFT JOIN users ON players.User_ID = users.User_ID ",
+				"WHERE mutants.Game_ID=? AND mutants.ClassFile IS NOT NULL AND (mutants.Equivalent = 'ASSUMED_NO' OR mutants.Equivalent = 'PROVEN_NO') ",
 				"ORDER BY Timestamp;");
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gid));
@@ -963,14 +1005,21 @@ public class DatabaseAccess {
 	}
 
 	public static List<Test> getTestsForGame(int gid) {
-		String query = "SELECT * FROM tests WHERE Game_ID=? ORDER BY Timestamp;";
+		String query = "SELECT * FROM tests WHERE Game_ID=? AND ClassFile IS NOT NULL ORDER BY Timestamp;";
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gid));
 		return getTests(stmt, conn);
 	}
 
 	public static List<Test> getTestsForGameWithoutOnePlayer(int gameId, int playerId) {
-		String query = "SELECT * FROM tests WHERE Game_ID=? AND Player_ID!=?;";
+		String query = "SELECT tests.* FROM tests "
+				+ "	WHERE tests.Game_ID=? AND tests.ClassFile IS NOT NULL AND Player_ID!=?"
+				+ "  AND EXISTS ("
+				+ "    SELECT * FROM targetexecutions ex"
+				+ "    WHERE ex.Test_ID = tests.Test_ID"
+				+ "      AND ex.Target='TEST_ORIGINAL'"
+				+ "      AND ex.Status='SUCCESS'"
+				+ "  );";
 		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
 				DB.getDBV(playerId)};
 		Connection conn = DB.getConnection();
@@ -990,32 +1039,11 @@ public class DatabaseAccess {
      * @param gid
      * @return
      */
-    public static List<DuelGame> getGamesForClass(int cid) {
-        String query = "SELECT g.ID, g.Class_ID, g.Level, g.Creator_ID, g.State,"
-                + "g.CurrentRound, g.FinalRound, g.ActiveRole, g.Mode, g.Creator_ID,\n"
-                + "IFNULL(att.User_ID,0) AS Attacker_ID, IFNULL(def.User_ID,0) AS Defender_ID\n"
-                + "FROM games AS g\n"
-                + "LEFT JOIN players AS att ON g.ID=att.Game_ID  AND att.Role='ATTACKER' AND att.Active=TRUE\n"
-                + "LEFT JOIN players AS def ON g.ID=def.Game_ID AND def.Role='DEFENDER' AND def.Active=TRUE\n"
-                + "WHERE g.Class_ID=? AND g.IsAIDummyGame=FALSE;";
-        // String query = "SELECT * FROM games WHERE Class_ID=?;";
+    public static List<MultiplayerGame> getGamesForClass(int cid) {
+        String query = "SELECT * FROM games WHERE Class_ID = ? AND Mode = 'PARTY';";
         Connection conn = DB.getConnection();
         PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(cid));
-        return getGames(stmt, conn);
-
-		/* userid übergeben hier
-		String query = "SELECT g.ID, g.Class_ID, g.Level, g.Creator_ID, g.State, g.CurrentRound, g.FinalRound, g.ActiveRole,"
-				+ " g.Mode, g.Creator_ID,\n" + "IFNULL(att.User_ID,0) AS Attacker_ID, IFNULL(def.User_ID,0) AS Defender_ID"
-						+ " FROM games AS g LEFT JOIN players AS att ON g.ID=att.Game_ID  AND att.Role='ATTACKER' AND"
-						+ " att.Active=TRUE\n" + "LEFT JOIN players AS def ON g.ID=def.Game_ID AND def.Role='DEFENDER' AND"
-								+ " def.Active=TRUE WHERE g.Mode != 'PARTY' AND g.State!='FINISHED' AND (g.Creator_ID=? OR"
-								+ " IFNULL(att.User_ID,0)=? OR IFNULL(def.User_ID,0)=?);";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(userId),
-				DB.getDBV(userId),
-				DB.getDBV(userId)};
-		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
-		return getGames(stmt, conn); */
+        return getMultiplayerGames(stmt, conn);
     }
 
 	/**
@@ -1036,7 +1064,6 @@ public class DatabaseAccess {
 				 "      AND ex.Status='SUCCESS'",
 				 "  );"
 		);
-		// System.out.println(query);
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gameId));
 		return getTests(stmt, conn);
@@ -1051,6 +1078,7 @@ public class DatabaseAccess {
 				"	WHERE ex.Mutant_ID = mutants.Mutant_ID",
 				"		AND ex.Target='COMPILE_MUTANT'",
 				"		AND ex.Status='SUCCESS'",
+				"		AND mutants.Equivalent='ASSUMED_NO'",
 				"	);"
 		);
 		Connection conn = DB.getConnection();

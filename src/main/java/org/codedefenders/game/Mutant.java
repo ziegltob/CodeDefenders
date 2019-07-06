@@ -217,6 +217,10 @@ public class Mutant implements Serializable {
 		return classFile;
 	}
 
+	public void setClassFile(String classFile) {
+		this.classFile = classFile;
+	}
+
 	public String getJavaFile() {
 		return javaFile;
 	}
@@ -506,8 +510,10 @@ public class Mutant implements Serializable {
 		Connection conn = DB.getConnection();
 
 		// We cannot update killed mutants
-		String query = "UPDATE mutants SET Equivalent=?, Alive=?, RoundKilled=?, NumberAiKillingTests=?, Points=? WHERE Mutant_ID=? AND Alive=1;";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(equivalent.name()),
+		String query = "UPDATE mutants SET ClassFile=?, Equivalent=?, Alive=?, RoundKilled=?, NumberAiKillingTests=?, Points=? WHERE Mutant_ID=? AND Alive=1;";
+		DatabaseValue[] valueList = new DatabaseValue[]{
+				DB.getDBV(classFile),
+				DB.getDBV(equivalent.name()),
 				DB.getDBV(sqlAlive()),
 				DB.getDBV(roundKilled),
 				DB.getDBV(killedByAITests),
@@ -520,7 +526,28 @@ public class Mutant implements Serializable {
 
 	@Override
 	public String toString() {
-		return "Mutant " + getId() + "; Alive:"+ isAlive() + "; Equivalent: " + getEquivalent() + " - " + getScore();
+		return "Mutant{" +
+				"id=" + id +
+				", gameId=" + gameId +
+				", javaFile='" + javaFile + '\'' +
+				", md5='" + md5 + '\'' +
+				", classFile='" + classFile + '\'' +
+				", creatorName='" + creatorName + '\'' +
+				", creatorId=" + creatorId +
+				", timestamp=" + timestamp +
+				", alive=" + alive +
+				", killingTestId=" + killingTestId +
+				", equivalent=" + equivalent +
+				", roundCreated=" + roundCreated +
+				", roundKilled=" + roundKilled +
+				", playerId=" + playerId +
+				", killedByAITests=" + killedByAITests +
+				", score=" + score +
+				", classId=" + classId +
+				", lines=" + lines +
+				", description=" + description +
+				", difference=" + difference +
+				'}';
 	}
 
 	public void setTimesKilledAi(int count) {

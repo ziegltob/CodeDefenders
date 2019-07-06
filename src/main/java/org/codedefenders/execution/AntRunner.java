@@ -318,6 +318,38 @@ public class AntRunner {
 		return newMutant;
 	}
 
+	public static Mutant recompileMutant(int mutantId, GameClass cut) {
+	    Mutant mutant = DatabaseAccess.getMutantById(mutantId);
+        File dir = new File(mutant.getDirectory());
+
+        // Gets the classname for the mutant from the game it is in
+		AntProcessResult result = runAntTarget("compile-mutant", dir.getAbsolutePath(), null, cut, null, forceLocalExecution);
+
+		// logger.info("Compilation result: {}", result);
+
+		// If the input stream returned a 'successful build' message, the mutant compiled correctly
+		if (result.compiled()) {
+			// Create and insert a new target execution recording successful compilation, with no message to report, and return its ID
+			final String compiledClassName = cut.getBaseName() + JAVA_CLASS_EXT;
+			final LinkedList<File> matchingFiles = new LinkedList<>(FileUtils.listFiles(dir, FileFilterUtils.nameFileFilter(compiledClassName), FileFilterUtils.trueFileFilter()));
+			assert (! matchingFiles.isEmpty()): "if compilation was successful, .class file must exist";
+			String cFile = matchingFiles.get(0).getAbsolutePath();
+			mutant.setClassFile(cFile);
+			mutant.update();
+			TargetExecution newExec = new TargetExecution(0, mutant.getId(), TargetExecution.Target.COMPILE_MUTANT, "SUCCESS", null);
+			newExec.insert();
+			return mutant;
+		} else {
+			// The mutant failed to compile
+			// New target execution recording failed compilation, providing the return messages from the ant javac task
+			String message = result.getCompilerOutput();
+			logger.error("Failed to compile mutant {}: {}", mutant.getJavaFile(), message);
+			TargetExecution newExec = new TargetExecution(0, mutant.getId(), TargetExecution.Target.COMPILE_MUTANT, "FAIL", message);
+			newExec.insert();
+			return mutant;
+		}
+	}
+
 	/**
 	 * Compiles test
 	 * @param dir Test directory
@@ -358,6 +390,45 @@ public class AntRunner {
 			TargetExecution newExec = new TargetExecution(newTest.getId(), 0, TargetExecution.Target.COMPILE_TEST, "FAIL", message);
 			newExec.insert();
 			return newTest;
+		}
+	}
+
+	public static Test recompileTest(int testId, GameClass cut) {
+		Test test = DatabaseAccess.getTestForId(testId);
+		File dir = new File(test.getDirectory());
+		AntProcessResult result = runAntTarget("compile-test", null, dir.getAbsolutePath(), cut, null, forceLocalExecution);
+
+		// If the input stream returned a 'successful build' message, the test compiled correctly
+		if (result.compiled()) {
+			// Create and insert a new target execution recording successful compilation, with no message to report, and return its ID
+			// Locate .class file
+			final String compiledClassName = FilenameUtils.getBaseName(test.getJavaFile()) + JAVA_CLASS_EXT;
+			final List<File> matchingFiles = new LinkedList<>(FileUtils.listFiles(dir, FileFilterUtils.nameFileFilter(compiledClassName), FileFilterUtils.trueFileFilter()));
+			assert (! matchingFiles.isEmpty()); // if compilation was successful, .class file must exist
+			String cFile = matchingFiles.get(0).getAbsolutePath();
+			// logger.info("Compiled test {}", compiledClassName);
+			test.setClassFile(cFile);
+			if (test.getLineCoverage().getLinesCovered() == null) {
+                testOriginal(dir, test);
+            } else if (test.getLineCoverage().getLinesCovered().isEmpty()) {
+			    testOriginal(dir, test);
+            } else {
+			    test.update();
+            }
+            // testOriginal already updates the test
+            // test.update();
+			TargetExecution newExec = new TargetExecution(test.getId(), 0, TargetExecution.Target.COMPILE_TEST, "SUCCESS", null);
+			newExec.insert();
+			return test;
+		} else {
+			// The test failed to compile
+			// New target execution recording failed compilation, providing the return messages from the ant javac task
+			String message = result.getCompilerOutput();
+			logger.error("Failed to compile test {}: {}", test.getJavaFile(), message);
+			test.update();
+			TargetExecution newExec = new TargetExecution(test.getId(), 0, TargetExecution.Target.COMPILE_TEST, "FAIL", message);
+			newExec.insert();
+			return test;
 		}
 	}
 
