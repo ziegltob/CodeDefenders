@@ -29,6 +29,8 @@ import org.codedefenders.game.singleplayer.AiPlayer;
 import org.codedefenders.game.singleplayer.NoDummyGameException;
 import org.codedefenders.database.DatabaseAccess;
 import org.codedefenders.execution.TargetExecution;
+import org.codedefenders.database.AdminDAO;
+import org.codedefenders.servlets.admin.AdminSystemSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -93,10 +95,10 @@ public class AiDefender extends AiPlayer {
 		if (testScores.containsKey(-1) && testScores.get(-1) != null) {
 			defenderScore += ((PlayerScore) testScores.get(-1)).getTotalScore();
 		}
-		if (defenderScore + 5 > attackerScore
-                || multiplayerGame.getMutants().size() < multiplayerGame.getTests().size() * 2
-                || multiplayerGame.getMutants().size() == 0
-                || multiplayerGame.getAliveMutants().size() == 0) {
+		if (defenderScore + AdminDAO.getSystemSetting(AdminSystemSettings.SETTING_NAME.AI_DEFENDER_POINTS_DIFFERENCE).getIntValue() > attackerScore
+				|| multiplayerGame.getMutants().size() < multiplayerGame.getTests().size() * AdminDAO.getSystemSetting(AdminSystemSettings.SETTING_NAME.AI_TEST_MUTANT_RELATION).getFloatValue()
+				|| multiplayerGame.getMutants().size() == 0
+				|| multiplayerGame.getAliveMutants().size() == 0) {
 			logger.info("AI-Defender doing nothing due to game scores or test-mutant relation.");
 			return false;
 		}

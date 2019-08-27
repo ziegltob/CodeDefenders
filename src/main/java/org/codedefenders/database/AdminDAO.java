@@ -596,6 +596,9 @@ public class AdminDAO {
             case BOOL_VALUE:
                 valueList[0] = DB.getDBV(setting.getBoolValue());
                 break;
+            case FLOAT_VALUE:
+                valueList[0] = DB.getDBV(setting.getFloatValue());
+                break;
         }
         PreparedStatement stmt = DB.createPreparedStatement(conn, UPDATE_SETTING_1 + valueToSet + UPDATE_SETTING_2, valueList);
         return DB.executeUpdate(stmt, conn);
@@ -617,6 +620,9 @@ public class AdminDAO {
                         break;
                     case BOOL_VALUE:
                         setting = new AdminSystemSettings.SettingsDTO(name,rs.getBoolean(settingType.name()));
+                        break;
+                    case FLOAT_VALUE:
+                        setting = new AdminSystemSettings.SettingsDTO(name,rs.getFloat(settingType.name()));
                         break;
                 }
                 settings.add(setting);
