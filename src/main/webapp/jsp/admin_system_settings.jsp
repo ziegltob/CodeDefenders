@@ -34,12 +34,18 @@
         <script>
             function validateForm() {
                 var form = document.forms['changeSettings'];
+                var aiStrat = form["<%=AdminSystemSettings.SETTING_NAME.AI_STRAT.name()%>"];
+                var aiDefPointsDifference = form["<%=AdminSystemSettings.SETTING_NAME.AI_DEFENDER_POINTS_DIFFERENCE.name()%>"];
+                var aiAtkPointsDifference = form["<%=AdminSystemSettings.SETTING_NAME.AI_ATTACKER_POINTS_DIFFERENCE.name()%>"];
+                var aiTestMutantRelation = form["<%=AdminSystemSettings.SETTING_NAME.AI_TEST_MUTANT_RELATION.name()%>"];
                 var mailEnabled = form["<%=AdminSystemSettings.SETTING_NAME.EMAILS_ENABLED.name()%>"].checked;
                 var address = form["<%=AdminSystemSettings.SETTING_NAME.EMAIL_ADDRESS.name()%>"];
                 var password = form["<%=AdminSystemSettings.SETTING_NAME.EMAIL_PASSWORD.name()%>"];
                 var smtpHost = form["<%=AdminSystemSettings.SETTING_NAME.EMAIL_SMTP_HOST.name()%>"];
                 var smtpPort = form["<%=AdminSystemSettings.SETTING_NAME.EMAIL_SMTP_PORT.name()%>"];
 
+                (aiStrat.value === "KILLCOUNT" || aiStrat.value === "RANDOM" || aiStrat.value === "COVERAGE") ?
+                    aiStrat.parentElement.style.border = '0px' : aiStrat.parentElement.style.border = "1px solid red";
                 if (mailEnabled) {
                     if (address.value === "") {
                         address.parentElement.style.border = "1px solid red";
@@ -59,13 +65,14 @@
                         smtpPort.parentElement.style.border ='0px';
                     }
 
-                    return address.value !== "" && smtpHost.value !== "" && smtpPort.value !== 0;
+                    return address.value !== "" && smtpHost.value !== "" && smtpPort.value !== 0
+                        && (aiStrat.value === "KILLCOUNT" || aiStrat.value === "RANDOM" || aiStrat.value === "COVERAGE");
                 } else {
                     address.parentElement.style.border = '0px';
                     password.parentElement.style.border ='0px';
                     smtpHost.parentElement.style.border ='0px';
                     smtpPort.parentElement.style.border ='0px';
-                    return true;
+                    return (aiStrat.value === "KILLCOUNT" || aiStrat.value === "RANDOM" || aiStrat.value === "COVERAGE");
                 }
             }
         </script>
@@ -118,6 +125,14 @@
             <span class="input-group-addon" style=" width: 250px; text-align: left;"
                   title="<%=explanation%>"><%=readableName%> </span>
             <input type="number" value="<%=setting.getIntValue()%>" id="<%=setting.getName().name()%>"
+                   name="<%=setting.getName().name()%>" min="0" required class="form-control" style="width: 80px"/>
+        </div>
+        <% break;
+            case FLOAT_VALUE: %>
+        <div class="input-group" id="<%="group_"+setting.getName().name()%>">
+            <span class="input-group-addon" style=" width: 250px; text-align: left;"
+                  title="<%=explanation%>"><%=readableName%> </span>
+            <input type="number" step="0.1" value="<%=setting.getFloatValue()%>" id="<%=setting.getName().name()%>"
                    name="<%=setting.getName().name()%>" min="0" required class="form-control" style="width: 80px"/>
         </div>
         <%

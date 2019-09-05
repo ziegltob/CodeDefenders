@@ -76,6 +76,9 @@ public class Constants {
 	public static final int DUMMY_ATTACKER_USER_ID = 3;
 	public static final int DUMMY_DEFENDER_USER_ID = 4;
 
+	public static final int[] SIMULATION_ATTACKER_IDS = {-2, -3, -4, -5, -6};
+	public static final int[] SIMULATION_DEFENDER_IDS = {-7, -8, -9, -10, -11};
+
 	//public static String DATA_DIR    = F_SEP + "WEB-INF" + F_SEP + "data";
 	public static final String CUTS_DIR = DATA_DIR + F_SEP + "sources";
 	// dependencies, mutants and tests subdirectories for CUTs
@@ -109,6 +112,16 @@ public class Constants {
 	// JSP file paths
 	public static final String LOGIN_VIEW_JSP = "jsp" + F_SEP + "login_view.jsp";
 	public static final String UTESTING_VIEW_JSP = "jsp" + F_SEP + "utesting_view.jsp";
+    public static final String ADMIN_USER_JSP = "/jsp" + F_SEP + "admin_user_mgmt.jsp";
+    public static final String ADMIN_GAMES_JSP = "/jsp" + F_SEP + "admin_create_games.jsp";
+    public static final String ADMIN_SETTINGS_JSP = "/jsp" + F_SEP + "admin_system_settings.jsp";
+    public static final String ADMIN_MONITOR_JSP = "/jsp" + F_SEP + "admin_monitor_games.jsp";
+    public static final String ADMIN_MODIFY_JSP = "/jsp" + F_SEP + "admin_modify_games.jsp";
+    public static final String ADMIN_SIMULATION_JSP = "/jsp" + F_SEP + "admin_simulation_games.jsp";
+    public static final String ADMIN_SIMULATED_JSP = "/jsp" + F_SEP + "admin_simulated_games.jsp";
+    public static final String ADMIN_SIMULATE_JSP = "/jsp" + F_SEP + "admin_simulate_game.jsp";
+    public static final String ADMIN_ANALYTICS_USERS_JSP = "/jsp" + F_SEP + "admin_analytics_users.jsp";
+    public static final String ADMIN_ANALYTICS_CLASSES_JSP = "/jsp" + F_SEP + "admin_analytics_classes.jsp";
 
 	public static final String DUEL_RESOLVE_EQUIVALENCE_JSP = "jsp/duel/equivalence_view.jsp";
 	public static final String DUEL_ATTACKER_VIEW_JSP = "jsp/duel/attacker_view.jsp";

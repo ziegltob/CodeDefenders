@@ -39,16 +39,17 @@ public class SinglePlayerGame extends DuelGame {
 	public SinglePlayerGame(int classId, int userId, int maxRounds, Role role, GameLevel level) {
 		super(classId, userId, maxRounds, role, level);
 
+		setMode(GameMode.SINGLE); //Set singleplayer mode.
+		setState(GameState.ACTIVE);
 		//Set ai's role
+		/*
 		if(role.equals(Role.ATTACKER)) {
 			setDefenderId(AiDefender.ID);
 			ai = new AiDefender(this);
 		} else {
 			setAttackerId(AiAttacker.ID);
 			ai = new AiAttacker(this);
-		}
-		setMode(GameMode.SINGLE); //Set singleplayer mode.
-		setState(GameState.ACTIVE);
+		}*/
 	}
 
 	public AiPlayer getAi() {
@@ -58,11 +59,12 @@ public class SinglePlayerGame extends DuelGame {
 	public SinglePlayerGame(int id, int attackerId, int defenderId, int classId, int currentRound, int finalRound, Role activeRole, GameState state, GameLevel level, GameMode mode) {
 		super(id, attackerId, defenderId, classId, currentRound, finalRound, activeRole, state, level, mode);
 		//Set ai's role
+		/*
 		if(defenderId == AiDefender.ID) {
 			ai = new AiDefender(this);
 		} else {
 			ai = new AiAttacker(this);
-		}
+		}*/
 	}
 
 	/**

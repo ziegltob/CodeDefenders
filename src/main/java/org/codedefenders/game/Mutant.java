@@ -31,11 +31,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -71,6 +74,7 @@ public class Mutant implements Serializable {
 
     private String creatorName;
 	private int creatorId;
+	private Timestamp timestamp;
 
 	private boolean alive;
 
@@ -176,12 +180,28 @@ public class Mutant implements Serializable {
         this.creatorId = creatorId;
     }
 
+    public void setPlayerId(int playerId) {
+        this.playerId = playerId;
+    }
+
 	public int getId() {
 		return id;
 	}
 
 	public int getGameId() {
 		return gameId;
+	}
+
+	public void setGameId(int gameId) {
+		this.gameId = gameId;
+	}
+
+	public Timestamp getTimestamp() {
+		return timestamp;
+	}
+
+	public void setTimestamp(Timestamp timestamp) {
+		this.timestamp = timestamp;
 	}
 
 	public Equivalence getEquivalent() {
@@ -201,6 +221,10 @@ public class Mutant implements Serializable {
 
 	public String getClassFile() {
 		return classFile;
+	}
+
+	public void setClassFile(String classFile) {
+		this.classFile = classFile;
 	}
 
 	public String getJavaFile() {
@@ -438,14 +462,56 @@ public class Mutant implements Serializable {
 		return StringEscapeUtils.escapeHtml(getPatchString());
 	}
 
-	public boolean insert() {
+	private List<String> readLinesIfFileExist(Path path) {
+		List<String> lines = new ArrayList<>();
 		try {
-			this.id = MutantDAO.storeMutant(this);
-			return true;
-		} catch (Exception e) {
-			logger.error("Inserting mutants resulted in error.", e);
-		    return false;
+			if (Files.exists(path))
+				lines = Files.readAllLines(path, StandardCharsets.UTF_8);
+			else {
+				logger.error("File not found {}", path);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();  // TODO handle properly
+			return null;
 		}
+		return lines;
+	}
+
+	// insert will run once after mutant creation.
+	// Stores values of JavaFile, ClassFile, GameID, RoundCreated in DB. These will not change once input.
+	// Default values for Equivalent (ASSUMED_NO), Alive(1), RoundKilled(NULL) are assigned.
+	// Currently Mutant ID isnt set yet after insertion, if Mutant needs to be used straight away it needs a similar insert method to MultiplayerGame.
+	@Deprecated
+	public boolean insert(boolean addSlashes) {
+		logger.info("Inserting mutant");
+		Connection conn = DB.getConnection();
+		String jFileDB;
+		String cFileDB;
+		if (addSlashes) {
+			jFileDB = DatabaseAccess.addSlashes(javaFile);
+			cFileDB = classFile == null ? null : DatabaseAccess.addSlashes(classFile);
+		} else {
+			jFileDB = javaFile;
+			cFileDB = classFile == null ? null : classFile;
+		}
+		String query = "INSERT INTO mutants (JavaFile, ClassFile, Game_ID, RoundCreated, Timestamp, Alive, Player_ID, Points, MD5)" +
+				" VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
+		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(jFileDB),
+				DB.getDBV(cFileDB),
+				DB.getDBV(gameId),
+				DB.getDBV(roundCreated),
+				DB.getDBV(timestamp),
+				DB.getDBV(sqlAlive()),
+				DB.getDBV(playerId),
+				DB.getDBV(score),
+				DB.getDBV(md5)};
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
+		int res = DB.executeUpdateGetKeys(stmt, conn);
+		if (res > -1) {
+			this.id = res;
+			return true;
+		}
+		return false;
 	}
 
 	// update will run when changes to a mutant are made.
@@ -458,16 +524,44 @@ public class Mutant implements Serializable {
 		Connection conn = DB.getConnection();
 
 		// We cannot update killed mutants
-		String query = "UPDATE mutants SET Equivalent=?, Alive=?, RoundKilled=?, NumberAiKillingTests=?, Points=? WHERE Mutant_ID=? AND Alive=1;";
-		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(equivalent.name()),
-				DatabaseValue.of(sqlAlive()),
-				DatabaseValue.of(roundKilled),
-				DatabaseValue.of(killedByAITests),
-				DatabaseValue.of(score),
-				DatabaseValue.of(id)};
+		String query = "UPDATE mutants SET ClassFile=?, Equivalent=?, Alive=?, RoundKilled=?, NumberAiKillingTests=?, Points=? WHERE Mutant_ID=? AND Alive=1;";
+		DatabaseValue[] valueList = new DatabaseValue[]{
+				DB.getDBV(classFile),
+				DB.getDBV(equivalent.name()),
+				DB.getDBV(sqlAlive()),
+				DB.getDBV(roundKilled),
+				DB.getDBV(killedByAITests),
+				DB.getDBV(score),
+				DB.getDBV(id)};
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 
 		return DB.executeUpdate(stmt, conn);
+	}
+
+	@Override
+	public String toString() {
+		return "Mutant{" +
+				"id=" + id +
+				", gameId=" + gameId +
+				", javaFile='" + javaFile + '\'' +
+				", md5='" + md5 + '\'' +
+				", classFile='" + classFile + '\'' +
+				", creatorName='" + creatorName + '\'' +
+				", creatorId=" + creatorId +
+				", timestamp=" + timestamp +
+				", alive=" + alive +
+				", killingTestId=" + killingTestId +
+				", equivalent=" + equivalent +
+				", roundCreated=" + roundCreated +
+				", roundKilled=" + roundKilled +
+				", playerId=" + playerId +
+				", killedByAITests=" + killedByAITests +
+				", score=" + score +
+				", classId=" + classId +
+				", lines=" + lines +
+				", description=" + description +
+				", difference=" + difference +
+				'}';
 	}
 
 	public void setTimesKilledAi(int count) {
@@ -544,6 +638,19 @@ public class Mutant implements Serializable {
 		}
 
 		setLines( mutatedLines );
+	}
+
+	@SuppressWarnings("Duplicates")
+	public String getAsString() {
+		try {
+			return new String(Files.readAllBytes(Paths.get(javaFile)));
+		} catch (FileNotFoundException e) {
+			logger.error("Could not find file " + javaFile);
+			return "[File Not Found]";
+		} catch (IOException e) {
+			logger.error("Could not read file " + javaFile);
+			return "[File Not Readable]";
+		}
 	}
 
 	public synchronized List<String> getHTMLReadout() {

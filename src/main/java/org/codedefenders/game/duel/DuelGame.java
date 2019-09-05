@@ -58,6 +58,26 @@ public class DuelGame extends AbstractGame {
 		this.mode = GameMode.DUEL;
 	}
 
+	public DuelGame(int classId, int userId, int maxRounds, Role role, GameLevel level, boolean isAIDummyGame) {
+		this.classId = classId;
+
+		if (role.equals(Role.ATTACKER)) {
+			attackerId = userId;
+		} else {
+			defenderId = userId;
+		}
+
+		this.currentRound = 1;
+		this.finalRound = maxRounds;
+
+		this.activeRole = Role.ATTACKER;
+		this.state = GameState.CREATED;
+
+		this.level = level;
+		this.mode = GameMode.DUEL;
+		this.isAIDummyGame = isAIDummyGame;
+	}
+
 	public DuelGame(int id, int attackerId, int defenderId, int classId, int currentRound, int finalRound, Role activeRole, GameState state, GameLevel level, GameMode mode) {
 		this.id = id;
 		this.attackerId = attackerId;

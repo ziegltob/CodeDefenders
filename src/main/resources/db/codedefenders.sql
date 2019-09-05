@@ -28,12 +28,14 @@ CREATE TABLE test_smell (
 -- Table structure for table `settings`
 --
 DROP TABLE IF EXISTS `settings`;
-CREATE TABLE `settings` (
+CREATE TABLE settings
+(
   `name` varchar(50) NOT NULL,
-  `type` enum('STRING_VALUE','INT_VALUE','BOOL_VALUE') DEFAULT NULL,
+  `type` enum('STRING_VALUE', 'INT_VALUE', 'BOOL_VALUE', 'FLOAT_VALUE'),
   `STRING_VALUE` text,
   `INT_VALUE` int(11) DEFAULT NULL,
   `BOOL_VALUE` tinyint(1) DEFAULT NULL,
+  `FLOAT_VALUE`  FLOAT
   PRIMARY KEY (`name`)
 );
 
@@ -41,24 +43,28 @@ CREATE TABLE `settings` (
 -- Default settings
 --
 
-INSERT INTO settings (name, type, STRING_VALUE, INT_VALUE, BOOL_VALUE) VALUES
-  ('SHOW_PLAYER_FEEDBACK', 'BOOL_VALUE', NULL, NULL, FALSE),
-  ('REGISTRATION', 'BOOL_VALUE', NULL, NULL, TRUE),
-  ('CLASS_UPLOAD', 'BOOL_VALUE', NULL, NULL, TRUE),
-  ('GAME_CREATION', 'BOOL_VALUE', NULL, NULL, TRUE),
+INSERT INTO settings (name, type, STRING_VALUE, INT_VALUE, BOOL_VALUE, FLOAT_VALUE) VALUES
+  ('SHOW_PLAYER_FEEDBACK', 'BOOL_VALUE', NULL, NULL, FALSE, NULL),
+  ('REGISTRATION', 'BOOL_VALUE', NULL, NULL, TRUE, NULL),
+  ('CLASS_UPLOAD', 'BOOL_VALUE', NULL, NULL, TRUE, NULL),
+  ('GAME_CREATION', 'BOOL_VALUE', NULL, NULL, TRUE, NULL),
   ('GAME_JOINING', 'BOOL_VALUE', NULL, NULL, TRUE),
-  ('REQUIRE_MAIL_VALIDATION', 'BOOL_VALUE', NULL, NULL, FALSE),
-  ('SITE_NOTICE', 'STRING_VALUE', '', NULL, NULL),
-  ('PASSWORD_RESET_SECRET_LIFESPAN', 'INT_VALUE', NULL, 12, NULL),
-  ('MIN_PASSWORD_LENGTH', 'INT_VALUE', NULL, 8, NULL),
-  ('CONNECTION_POOL_CONNECTIONS', 'INT_VALUE', NULL, 20, NULL),
-  ('CONNECTION_WAITING_TIME', 'INT_VALUE', NULL, 5000, NULL),
-  ('EMAIL_SMTP_HOST', 'STRING_VALUE', '', NULL, NULL),
-  ('EMAIL_SMTP_PORT', 'INT_VALUE', '', NULL, NULL),
-  ('EMAIL_ADDRESS', 'STRING_VALUE', '', NULL, NULL),
-  ('EMAILS_ENABLED', 'BOOL_VALUE', NULL, NULL, FALSE),
-  ('DEBUG_MODE', 'BOOL_VALUE', NULL, NULL, FALSE),
-  ('EMAIL_PASSWORD', 'STRING_VALUE', '', NULL, NULL),
+  ('REQUIRE_MAIL_VALIDATION', 'BOOL_VALUE', NULL, NULL, FALSE, NULL),
+  ('SITE_NOTICE', 'STRING_VALUE', '', NULL, NULL, NULL),
+  ('PASSWORD_RESET_SECRET_LIFESPAN', 'INT_VALUE', NULL, 12, NULL, NULL),
+  ('MIN_PASSWORD_LENGTH', 'INT_VALUE', NULL, 8, NULL, NULL),
+  ('CONNECTION_POOL_CONNECTIONS', 'INT_VALUE', NULL, 20, NULL, NULL),
+  ('CONNECTION_WAITING_TIME', 'INT_VALUE', NULL, 5000, NULL, NULL),
+  ('EMAIL_SMTP_HOST', 'STRING_VALUE', '', NULL, NULL, NULL),
+  ('EMAIL_SMTP_PORT', 'INT_VALUE', '', NULL, NULL, NULL),
+  ('EMAIL_ADDRESS', 'STRING_VALUE', '', NULL, NULL, NULL),
+  ('EMAILS_ENABLED', 'BOOL_VALUE', NULL, NULL, FALSE, NULL),
+  ('DEBUG_MODE', 'BOOL_VALUE', NULL, NULL, FALSE, NULL),
+  ('EMAIL_PASSWORD', 'STRING_VALUE', '', NULL, NULL, NULL),
+  ('AI_STRAT', 'STRING_VALUE', 'KILLCOUNT', NULL, NULL, NULL),
+  ('AI_DEFENDER_POINTS_DIFFERENCE', 'INT_VALUE', NULL , 5, NULL, NULL),
+  ('AI_ATTACKER_POINTS_DIFFERENCE', 'INT_VALUE', NULL , 5, NULL, NULL),
+  ('AI_TEST_MUTANT_RELATION', 'FLOAT_VALUE', NULL, NULL, NULL, 2),
   ('AUTOMATIC_KILLMAP_COMPUTATION', 'BOOL_VALUE', NULL, NULL, FALSE);
 
 --
@@ -143,6 +149,9 @@ CREATE TABLE `games` (
   `Mode` enum('SINGLE','DUEL','PARTY','UTESTING','PUZZLE') NOT NULL DEFAULT 'DUEL',
   `RequiresValidation` tinyint(1) NOT NULL DEFAULT '0',
   `IsAIDummyGame` tinyint(1) NOT NULL DEFAULT '0',
+  `IsSimulationGame` TINYINT(1) DEFAULT '0' NOT NULL,
+  `SimulationOriginGame_ID` int(11) DEFAULT NULL,
+  `AiStrat` enum('KILLCOUNT','RANDOM','COVERAGE') DEFAULT NULL,
   `HasKillMap` tinyint(1) NOT NULL DEFAULT '0',
   `CapturePlayersIntention` tinyint(1) NOT NULL DEFAULT '0',
   `Puzzle_ID` int(11) DEFAULT NULL,
@@ -453,7 +462,18 @@ VALUES (1, 'Mutator', 'AI_ATTACKER_INACCESSIBLE', 'codedef_mutator@sheffield.ac.
        (2, 'TestGen', 'AI_DEFENDER_INACCESSIBLE', 'codedef_testgen@sheffield.ac.uk'),
        (-1, 'dummy_user', 'DUMMY_USER_INACCESSIBLE', 'user@dummy.com'),
        (3, 'System Attacker', 'DUMMY_ATTACKER_INACCESSIBLE', 'attacker@dummy.com'),
-       (4, 'System Defender', 'DUMMY_DEFENDER_INACCESSIBLE', 'defender@dummy.com');
+       (4, 'System Defender', 'DUMMY_DEFENDER_INACCESSIBLE', 'defender@dummy.com'),
+       -- Dummy users for the simulation of finished games
+       (-2, 'simulation_atk1', 'SIMULATION_USER_INACCESSIBLE', 'simatk1@dummy.com'),
+       (-3, 'simulation_atk2', 'SIMULATION_USER_INACCESSIBLE', 'simatk2@dummy.com'),
+       (-4, 'simulation_atk3', 'SIMULATION_USER_INACCESSIBLE', 'simatk3@dummy.com'),
+       (-5, 'simulation_atk4', 'SIMULATION_USER_INACCESSIBLE', 'simatk4@dummy.com'),
+       (-6, 'simulation_atk5', 'SIMULATION_USER_INACCESSIBLE', 'simatk5@dummy.com'),
+       (-7, 'simulation_def1', 'SIMULATION_USER_INACCESSIBLE', 'simdef1@dummy.com'),
+       (-8, 'simulation_def2', 'SIMULATION_USER_INACCESSIBLE', 'simdef2@dummy.com'),
+       (-9, 'simulation_def3', 'SIMULATION_USER_INACCESSIBLE', 'simdef3@dummy.com'),
+       (-10, 'simulation_def4', 'SIMULATION_USER_INACCESSIBLE', 'simdef14@dummy.com'),
+       (-11, 'simulation_def5', 'SIMULATION_USER_INACCESSIBLE', 'simdef15@dummy.com');
 
 --
 -- Table structure for table `sessions`

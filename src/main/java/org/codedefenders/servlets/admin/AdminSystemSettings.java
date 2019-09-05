@@ -142,13 +142,38 @@ public class AdminSystemSettings extends HttpServlet {
             public String toString() {
                 return "Turn on the automatic killmaps computation";
             }
-        }
+		},
+		AI_STRAT {
+			@Override
+			public String toString() {
+				return "The strategy the AI-Player uses.";
+			}
+		},
+		AI_DEFENDER_POINTS_DIFFERENCE {
+			@Override
+			public String toString() {
+				return "The difference in points of both teams when the AI-Defender actually executes a turn.";
+			}
+		},
+		AI_ATTACKER_POINTS_DIFFERENCE {
+			@Override
+			public String toString() {
+				return "The difference in points of both teams when the AI-Attacker actually executes a turn.";
+			}
+		},
+		AI_TEST_MUTANT_RELATION {
+			@Override
+			public String toString() {
+				return "The relation between tests and mutants of both teams when the AI-Player should make a turn.";
+			}
+		}
 	}
 
 	public enum SETTING_TYPE {
 		STRING_VALUE,
 		INT_VALUE,
-		BOOL_VALUE
+		BOOL_VALUE,
+		FLOAT_VALUE
 	}
 
 	public static class SettingsDTO {
@@ -171,9 +196,16 @@ public class AdminSystemSettings extends HttpServlet {
 			this.name = name;
 		}
 
+		public SettingsDTO(SETTING_NAME name, float value) {
+			this.floatValue = value;
+			this.type = SETTING_TYPE.FLOAT_VALUE;
+			this.name = name;
+		}
+
 		String stringValue;
 		Integer intValue;
 		Boolean boolValue;
+		Float floatValue;
 		private SETTING_TYPE type;
 		private SETTING_NAME name;
 
@@ -187,6 +219,10 @@ public class AdminSystemSettings extends HttpServlet {
 
 		public boolean getBoolValue() {
 			return boolValue;
+		}
+
+		public float getFloatValue() {
+			return floatValue;
 		}
 
 		public SETTING_NAME getName() {
@@ -207,6 +243,10 @@ public class AdminSystemSettings extends HttpServlet {
 
 		public void setBoolValue(boolean boolValue) {
 			this.boolValue = boolValue;
+		}
+
+		public void setFloatValue(float floatValue) {
+			this.floatValue = floatValue;
 		}
 	}
 
@@ -259,6 +299,8 @@ public class AdminSystemSettings extends HttpServlet {
 					case BOOL_VALUE:
 						setting.setBoolValue(valueString != null);
 						break;
+					case FLOAT_VALUE:
+						setting.setFloatValue(Float.parseFloat(valueString));
 				}
 				success = success && AdminDAO.updateSystemSetting(setting);
 			}

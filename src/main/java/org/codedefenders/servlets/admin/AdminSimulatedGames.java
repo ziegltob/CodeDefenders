@@ -1,5 +1,5 @@
-/*
- * Copyright (C) 2016-2019 Code Defenders contributors
+/**
+ * Copyright (C) 2016-2018 Code Defenders contributors
  *
  * This file is part of Code Defenders.
  *
@@ -16,12 +16,10 @@
  * You should have received a copy of the GNU General Public License
  * along with Code Defenders. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.codedefenders.game.singleplayer;
+package org.codedefenders.servlets.admin;
 
-import org.codedefenders.execution.AntRunner;
-import org.codedefenders.util.Paths;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.codedefenders.servlets.util.Redirect;
+import org.codedefenders.util.Constants;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,29 +30,25 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
-public class AiPreparer extends HttpServlet {
-    private static final Logger logger = LoggerFactory.getLogger(AntRunner.class);
+public class AdminSimulatedGames extends HttpServlet {
 
+    @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
-        response.sendRedirect(request.getContextPath()+ Paths.CLASS_UPLOAD);
+        request.getRequestDispatcher(Constants.ADMIN_SIMULATED_JSP).forward(request, response);
     }
 
+    @Override
     public void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
         HttpSession session = request.getSession();
-        ArrayList<String> messages = new ArrayList<>();
+        ArrayList<String> messages = new ArrayList<String>();
         session.setAttribute("messages", messages);
 
         switch (request.getParameter("formType")) {
-            case "runPrepareAi":
-                int cutId = Integer.parseInt(request.getParameter("cutID"));
-                if(!PrepareAI.createTestsAndMutants(cutId, false)) {
-                    messages.add("Preparation of AI for the class failed, please prepare the class again, or try a different class.");
-                }
-                break;
+
             default:
+                System.err.println("Action not recognised");
+                Redirect.redirectBack(request, response);
                 break;
         }
-
-        response.sendRedirect(request.getContextPath() + Paths.CLASS_UPLOAD);
     }
 }

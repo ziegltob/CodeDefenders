@@ -21,6 +21,7 @@ package org.codedefenders;
 import org.codedefenders.database.ConnectionPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.codedefenders.execution.ExecutorPool;
 
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
@@ -28,6 +29,8 @@ import javax.servlet.http.HttpSessionAttributeListener;
 import javax.servlet.http.HttpSessionBindingEvent;
 import javax.servlet.http.HttpSessionEvent;
 import javax.servlet.http.HttpSessionListener;
+import javax.servlet.http.HttpSessionBindingEvent;
+import java.util.concurrent.Executors;
 
 public class SystemStartStop implements ServletContextListener,
         HttpSessionListener, HttpSessionAttributeListener {
@@ -37,17 +40,17 @@ public class SystemStartStop implements ServletContextListener,
     public SystemStartStop() {
     }
 
-    // -------------------------------------------------------
-    // ServletContextListener implementation
-    // -------------------------------------------------------
-    public void contextInitialized(ServletContextEvent sce) {
-        /* This method is called when the servlet context is
-         * initialized(when the Web application is deployed).
-         * You can initialize servlet context related data here.
-         */
-        ConnectionPool.instance();
+	// -------------------------------------------------------
+	// ServletContextListener implementation
+	// -------------------------------------------------------
+	public void contextInitialized(ServletContextEvent sce) {
+      /* This method is called when the servlet context is
+         *initialized(when the Web application is deployed).
+         *You can initialize servlet context related data here.
+      */
+		ConnectionPool.instance();
         logger.info("Code Defenders started successfully.");
-    }
+	ExecutorPool.getInstanceOf().addAiPlayersOnStartup();}
 
     public void contextDestroyed(ServletContextEvent sce) {
         /* This method is invoked when the Servlet Context
@@ -56,6 +59,7 @@ public class SystemStartStop implements ServletContextListener,
          */
         ConnectionPool.instance().closeDBConnections();
         logger.info("Code Defenders shut down successfully.");
+        ExecutorPool.getInstanceOf().shutdownExecutor();
     }
 
     // -------------------------------------------------------

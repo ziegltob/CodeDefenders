@@ -46,6 +46,7 @@ import org.codedefenders.util.FileUtils;
 import org.codedefenders.util.JavaFileObject;
 import org.codedefenders.util.ZipFileUtils;
 import org.codedefenders.validation.code.CodeValidator;
+import org.codedefenders.game.singleplayer.PrepareAI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -471,12 +472,13 @@ public class ClassUploadManager extends HttpServlet {
         Redirect.redirectBack(request, response);
 
         // TODO Phil: Will this be used in the future? Looks like legacy code.
-//			if (shouldPrepareAI) {
-//				if (!PrepareAI.createTestsAndMutants()) {
-//					logger.error("Preparation of AI for class failed, please prepare the class again, or try a different class.");
-//					messages.add("Preparation of AI for class failed, please prepare the class again, or try a different class.");
-//				}
-//			}
+        if (shouldPrepareAI) {
+            if (!PrepareAI.createTestsAndMutants(cut.getId(), false)) {
+                logger.error("Preparation of AI for class failed, please prepare the class again, or try a different class.");
+                messages.add("Preparation of AI for class failed, please prepare the class again, or try a different class.");
+            }
+        }
+
     }
 
     /**

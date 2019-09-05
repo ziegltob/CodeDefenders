@@ -427,22 +427,72 @@ public class MutationTester {
         notif.insert();
     }
 
-    /**
-     * Runs a test against a mutant.
+	/**
+	 * This method is used for the AiAttacker to determine if a mutant survives all the tests.
+     * The AiAttacker can try out several mutants without scoring and then take the best one.
      *
-     * @param test
-     * @param mutant
-     * @return {@code true} if the test killed the mutant, {@code false} otherwise
-     */
-    private static boolean testVsMutant(Test test, Mutant mutant) {
-        if (TargetExecutionDAO.getTargetExecutionForPair(test.getId(), mutant.getId()) != null) {
+	 * @param game
+	 * @param mutant
+	 * @return returns true when the mutant is killed and false when it survives
+	 */
+	public static boolean runAllTestsOnMutantWithoutScoring(MultiplayerGame game, Mutant mutant) {
+		List<Test> tests = game.getTests(true); // executable tests submitted by defenders
+
+        boolean killed = false;
+		for (Test test : tests) {
+			if (useMutantCoverage && !test.isMutantCovered(mutant)) {
+				logger.info("Skipping non-covered mutant " + mutant.getId() + ", test " + test.getId());
+				continue;
+			}
+			killed = testOnMutantWithoutKilling(game, test, mutant);
+			if (killed) {
+				logger.info("Test {} kills mutant {}", test.getId(), mutant.getId());
+				return true; // return as soon as a test kills the mutant
+			}
+		}
+		return killed;
+	}
+
+	public static boolean testOnMutantWithoutKilling(MultiplayerGame game, Test test, Mutant mutant) {
+		TargetExecution execution = TargetExecutionDAO.getTargetExecutionForPair(test.getId(), mutant.getId());
+		if (execution == null) {
+			// Run the test against the mutant and get the result
+			execution = AntRunner.testMutant(mutant, test);
+		} else {
+			// this is for the ai trying out multiple tests on a mutant to check if they kill the mutant
+			logger.info("There is already an execution result for (m: {},t: {})", mutant.getId(), test.getId());
+		}
+		if (execution.status.equals("FAIL") || execution.status.equals("ERROR")) {
+			if (mutant.isAlive()) {
+				logger.info("Test {} kills Mutant {}", test.getId(), mutant.getId());
+				return true;
+			} else {
+				logger.info("Test {} would have killed Mutant {}, but Mutant {} was alredy dead!", test.getId(), mutant.getId(), mutant.getId());
+				// this was false before because the mutant was already dead but it should return true since he is dead anyways
+                return true;
+			}
+		} else {
+			logger.debug("Test {} did not kill Mutant {}", test.getId(), mutant.getId());
+			return false;
+		}
+	}
+
+	/**
+	 * Runs a test against a mutant.
+	 *
+	 * @param test
+	 * @param mutant
+	 * @return {@code true} if the test killed the mutant, {@code false} otherwise
+	 */
+	private static boolean testVsMutant(Test test, Mutant mutant) {
+		if (TargetExecutionDAO.getTargetExecutionForPair(test.getId(), mutant.getId()) != null) {
 			logger.error("Execution result found for Mutant {} and Test {}.", mutant.getId(), test.getId());
 			return false;
 		}
-        final TargetExecution executedTarget = AntRunner.testMutant(mutant, test);
+		final TargetExecution executedTarget = AntRunner.testMutant(mutant, test);
 
-        // If the test did NOT pass, the mutant was detected and should be killed.
-		if (!executedTarget.status.equals(FAIL) && !executedTarget.status.equals(ERROR)) {
+		// If the test did NOT pass, the mutant was detected and should be killed.
+		if (!executedTarget.status.equals("FAIL") && !executedTarget.status.equals("ERROR")) {
 			logger.debug("Test {} did not kill Mutant {}", test.getId(), mutant.getId());
 			return false;
 		}
@@ -451,9 +501,26 @@ public class MutationTester {
 			return false;
 		}
 
-        logger.info("Test {} killed Mutant {}", test.getId(), mutant.getId());
-        test.killMutant();
-        return true;
+		logger.info("Test {} killed Mutant {}", test.getId(), mutant.getId());
+		test.killMutant();
+		return true;
+	}
+
+	private static boolean didTestKillMutant(TargetExecution executedTarget, Mutant mutant, Test test) {
+		// If the test did NOT pass, the mutant was detected and should be killed.
+		if (executedTarget.status.equals("FAIL") || executedTarget.status.equals("ERROR")) {
+			if (mutant.kill(ASSUMED_NO)) {
+				logger.info("Test {} kills Mutant {}", test.getId(), mutant.getId());
+				test.killMutant();
+				return true;
+			} else {
+				logger.info("Test {} would have killed Mutant {}, but Mutant {} was alredy dead!", test.getId(), mutant.getId(), mutant.getId());
+				return false;
+			}
+		} else {
+			logger.debug("Test {} did not kill Mutant {}", test.getId(), mutant.getId());
+			return false;
+		}
 	}
 
     /**

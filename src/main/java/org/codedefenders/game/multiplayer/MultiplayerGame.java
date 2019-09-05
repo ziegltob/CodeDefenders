@@ -31,6 +31,7 @@ import org.codedefenders.game.GameState;
 import org.codedefenders.game.Mutant;
 import org.codedefenders.game.Role;
 import org.codedefenders.game.Test;
+import org.codedefenders.game.singleplayer.AiPlayer;
 import org.codedefenders.model.Event;
 import org.codedefenders.model.EventStatus;
 import org.codedefenders.model.EventType;
@@ -85,6 +86,10 @@ public class MultiplayerGame extends AbstractGame {
     private boolean chatEnabled;
     private CodeValidatorLevel mutantValidatorLevel;
     private boolean markUncovered;
+	// newly created games will have an ID of -10 which refers to no game
+	// the next two params help to get the evaluation done for a large number of simulation games
+	private int originGameId = -10;
+	private AiPlayer.GenerationMethod aiStrat = null;
 
     private boolean capturePlayersIntention;
 
@@ -113,6 +118,7 @@ public class MultiplayerGame extends AbstractGame {
         private boolean capturePlayersIntention = false;
         private boolean chatEnabled = false;
         private boolean markUncovered = false;
+        private boolean isSimulationGame = false;
         private float lineCoverage = 1f;
         private float mutantCoverage = 1f;
         private float prize = 1f;
@@ -143,6 +149,7 @@ public class MultiplayerGame extends AbstractGame {
 		public Builder capturePlayersIntention(boolean capturePlayersIntention) { this.capturePlayersIntention = capturePlayersIntention; return this; }
 		public Builder chatEnabled(boolean chatEnabled) { this.chatEnabled = chatEnabled; return this; }
 		public Builder markUncovered(boolean markUncovered) { this.markUncovered = markUncovered; return this; }
+		public Builder isSimulationGame(boolean isSimulationGame) { this.isSimulationGame = isSimulationGame; return this; }
 		public Builder prize(float prize) { this.prize = prize; return this; }
         public Builder lineCoverage(float lineCoverage) { this.lineCoverage = lineCoverage; return this; }
         public Builder mutantCoverage(float mutantCoverage) { this.mutantCoverage = mutantCoverage; return this; }
@@ -215,13 +222,21 @@ public class MultiplayerGame extends AbstractGame {
         return minDefenders;
     }
 
-    public void setId(int id) {
-        this.id = id;
-        if (this.state != GameState.FINISHED && finishDateTime < System.currentTimeMillis()) {
-            this.state = GameState.FINISHED;
-            update();
-        }
-    }
+	public void setDefenderLimit(int defenderLimit) {
+		this.defenderLimit = defenderLimit;
+	}
+
+	public void setAttackerLimit(int attackerLimit) {
+		this.attackerLimit = attackerLimit;
+	}
+
+	public void setId(int id) {
+		this.id = id;
+		if (this.state != GameState.FINISHED && finishDateTime < System.currentTimeMillis()) {
+			this.state = GameState.FINISHED;
+			update();
+		}
+	}
 
     public int getDefenderValue() {
         return defenderValue;
@@ -284,21 +299,32 @@ public class MultiplayerGame extends AbstractGame {
         return victor;
     }
 
-    public long getStartDateTime() {
-        return startDateTime;
-    }
+	public void setStartDateTime(Date startDateTime) {
+		this.startDateTime = startDateTime.getTime();
+	}
 
-    public long getFinishDateTime() {
-        return finishDateTime;
-    }
+	public long getStartInLong() {
+		return  this.startDateTime;
+	}
 
-    public String getFormattedStartDateTime() {
-        Date date = new Date(startDateTime);
-        return format.format(date);
-    }
+	public String getStartDateTime() {
+		Date date = new Date(startDateTime);
+		Format format = new SimpleDateFormat("yy/MM/dd HH:mm");
+		return format.format(date);
+	}
 
     public String getFormattedFinishDateTime() {
         Date date = new Date(finishDateTime);
+        return format.format(date);
+    }
+
+    public void setFinishDateTime(Date finishDateTime) {
+        this.finishDateTime = finishDateTime.getTime();
+    }
+
+    public String getFinishDateTime() {
+        Date date = new Date(finishDateTime);
+        Format format = new SimpleDateFormat("yy/MM/dd HH:mm");
         return format.format(date);
     }
 
@@ -312,14 +338,17 @@ public class MultiplayerGame extends AbstractGame {
         return GameDAO.getPlayersForGame(getId(), Role.DEFENDER).stream().mapToInt(Integer::intValue).toArray();
     }
 
-    /**
-     * This returns the ID of the Player not of the User
-     *
-     * @return
-     */
-    public int[] getAttackerIds() {
+	public int[] getAttackerIds() {
         return GameDAO.getPlayersForGame(getId(), Role.ATTACKER).stream().mapToInt(Integer::intValue).toArray();
-    }
+	}
+
+	public int[] getUserIds(Role role) {
+		return DatabaseAccess.getUserIdsForMultiplayerGame(getId(), role);
+	}
+
+	public int[] getPlayerIds() {
+		return ArrayUtils.addAll(getDefenderIds(), getAttackerIds());
+	}
 
     public boolean addPlayer(int userId, Role role) {
         return canJoinGame(userId, role) && addPlayerForce(userId, role);
@@ -578,6 +607,21 @@ public class MultiplayerGame extends AbstractGame {
         }
         return false;
     }
+	public void setAiStrat(AiPlayer.GenerationMethod aiStrat) {
+		this.aiStrat = aiStrat;
+	}
+
+	public AiPlayer.GenerationMethod getAiStrat() {
+		return aiStrat;
+	}
+
+	public int getOriginGameId() {
+		return originGameId;
+	}
+
+	public void setOriginGameId(int originGameId) {
+		this.originGameId = originGameId;
+	}
 
     public void notifyPlayers() {
         List<Event> events = getEvents();

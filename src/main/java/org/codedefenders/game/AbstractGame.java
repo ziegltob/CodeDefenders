@@ -58,6 +58,8 @@ public abstract class AbstractGame {
 	protected GameState state;
 	protected GameLevel level;
 	protected GameMode mode;
+	protected boolean isAIDummyGame;
+	protected boolean isSimulationGame;
 
 	protected List<Event> events;
 	protected List<Mutant> mutants;
@@ -118,6 +120,14 @@ public abstract class AbstractGame {
 
 	protected void setMode(GameMode newMode) { this.mode = newMode; }
 
+	public boolean isAIDummyGame() { return isAIDummyGame; }
+
+	public void setAIDummyGame(boolean isAIDummyGame) {	this.isAIDummyGame = isAIDummyGame; }
+
+	public boolean isSimulationGame() { return isSimulationGame; }
+
+	public void setSimulationGame(boolean isSimulationGame) {	this.isSimulationGame = isSimulationGame; }
+
 	public List<Test> getTests() {
 		return getTests(false);
 	}
@@ -127,6 +137,14 @@ public abstract class AbstractGame {
 			tests = TestDAO.getValidTestsForGame(this.id, defendersOnly);
 		}
 		return tests;
+	}
+
+	/**
+	 * Gets all executable Mutants from the generated Mutant Pool.
+	 * @return a list of executable Mutants for the AI-Player to enter.
+	 */
+	public List<Mutant> getMutantsFromPool() {
+		return DatabaseAccess.getMutantsForGame(this.id);
 	}
 
 	public List<Mutant> getMutants() {

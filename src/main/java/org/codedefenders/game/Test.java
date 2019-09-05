@@ -33,11 +33,13 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.Timestamp;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.HashSet;
 import java.util.stream.Collectors;
 
 import javassist.ClassPool;
@@ -58,7 +60,8 @@ public class Test {
 	private int gameId;
 	private int classId;
 	private String javaFile;
-	private String classFile;
+    private String classFile;
+	private Timestamp timestamp;
 
 	private int roundCreated;
 	private int mutantsKilled;
@@ -165,6 +168,18 @@ public class Test {
 		return gameId;
 	}
 
+	public void setGameId(int gameId) {
+		this.gameId = gameId;
+	}
+
+	public Timestamp getTimestamp() {
+		return timestamp;
+	}
+
+	public void setTimestamp(Timestamp timestamp) {
+		this.timestamp = timestamp;
+	}
+
 	public int getMutantsKilled() {
 		return mutantsKilled;
 	}
@@ -230,7 +245,15 @@ public class Test {
 	}
 
 	public Set<Mutant> getKilledMutants() {
-		return DatabaseAccess.getKilledMutantsForTestId(id);
+		// rather use a well formed DB query than this
+		Set<Mutant> killedMutants = new HashSet<>();
+		DatabaseAccess.getMultiplayerGame(DatabaseAccess.getTestForId(id).getGameId()).getKilledMutants()
+		.stream().forEach(mutant -> {
+			if (DatabaseAccess.getKillingTestIdForMutant(mutant.getId()) == id) {
+				killedMutants.add(mutant);
+			}
+		});
+		return killedMutants;
 	}
 
 	private String getAsString() {
@@ -242,14 +265,34 @@ public class Test {
 		return StringEscapeUtils.escapeHtml(getAsString());
 	}
 
-	public boolean insert() {
-		try {
-			this.id = TestDAO.storeTest(this);
-			return true;
-		} catch (UncheckedSQLException e) {
-			logger.error("Failed to store test to database.", e);
-			return false;
+
+	@Deprecated
+	public boolean insert(boolean addSlashes) {
+		String jFileDB;
+		String cFileDB;
+		if (addSlashes) {
+			jFileDB = DatabaseAccess.addSlashes(javaFile);
+			cFileDB = classFile == null ? null : DatabaseAccess.addSlashes(classFile);
+		} else {
+			jFileDB = javaFile;
+			cFileDB = classFile == null ? null : classFile;
 		}
+
+		Connection conn = DB.getConnection();
+		String query = "INSERT INTO tests (JavaFile, ClassFile, Game_ID, Timestamp, RoundCreated, Player_ID, Points) VALUES (?, ?, ?, ?, ?, ?, ?);";
+		DatabaseValue[] valueList = new DatabaseValue[]{
+				DB.getDBV(jFileDB),
+				DB.getDBV(cFileDB),
+				DB.getDBV(gameId),
+				DB.getDBV(timestamp),
+				DB.getDBV(roundCreated),
+				DB.getDBV(playerId),
+				DB.getDBV(score)
+		};
+
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
+		this.id = DB.executeUpdateGetKeys(stmt, conn);
+		return this.id > 0;
 	}
 
 	@Deprecated
@@ -265,8 +308,10 @@ public class Test {
 			linesUncoveredString = lineCoverage.getLinesUncovered().stream().map(Object::toString).collect(Collectors.joining(","));
 		}
 
-		String query = "UPDATE tests SET mutantsKilled=?,NumberAiMutantsKilled=?,Lines_Covered=?,Lines_Uncovered=?,Points=? WHERE Test_ID=?;";
-		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(mutantsKilled),
+		String query = "UPDATE tests SET ClassFile=?, mutantsKilled=?,NumberAiMutantsKilled=?,Lines_Covered=?,Lines_Uncovered=?,Points=? WHERE Test_ID=?;";
+		DatabaseValue[] valueList = new DatabaseValue[]{
+		        DatabaseValue.of(classFile),
+		        DatabaseValue.of(mutantsKilled),
 				DatabaseValue.of(aiMutantsKilled),
 				DatabaseValue.of(linesCoveredString),
 				DatabaseValue.of(linesUncoveredString),
@@ -320,7 +365,11 @@ public class Test {
 		return classFile;
 	}
 
-	public LineCoverage getLineCoverage() {
+    public void setClassFile(String classFile) {
+        this.classFile = classFile;
+    }
+
+    public LineCoverage getLineCoverage() {
 		return lineCoverage;
 	}
 
@@ -363,6 +412,19 @@ public class Test {
 
 	@Override
 	public String toString() {
-		return "[testId=" + id + ",classId="+ classId + ",mutantsKilled=" + mutantsKilled + ",score=" + score + "]";
+		return "Test{" +
+				"id=" + id +
+				", playerId=" + playerId +
+				", gameId=" + gameId +
+				", javaFile='" + javaFile + '\'' +
+				", classFile='" + classFile + '\'' +
+				", timestamp=" + timestamp +
+				", classId=" + classId +
+				", roundCreated=" + roundCreated +
+				", mutantsKilled=" + mutantsKilled +
+				", score=" + score +
+				", aiMutantsKilled=" + aiMutantsKilled +
+				", lineCoverage=" + lineCoverage +
+				'}';
 	}
 }
