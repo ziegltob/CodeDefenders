@@ -19,25 +19,27 @@
 package org.codedefenders.database;
 
 import org.codedefenders.execution.TargetExecution;
-import org.codedefenders.game.GameClass;
-import org.codedefenders.game.Mutant;
-import org.codedefenders.game.Role;
-import org.codedefenders.game.Test;
+import org.codedefenders.game.*;
 import org.codedefenders.game.duel.DuelGame;
+import org.codedefenders.game.multiplayer.MultiplayerGame;
 import org.codedefenders.game.leaderboard.Entry;
 import org.codedefenders.game.singleplayer.AiPlayer;
+import org.codedefenders.game.singleplayer.SinglePlayerGame;
 import org.codedefenders.model.Event;
 import org.codedefenders.model.EventStatus;
 import org.codedefenders.model.EventType;
+import org.codedefenders.model.User;
+import org.codedefenders.servlets.games.MultiplayerGameManager;
+import org.codedefenders.validation.code.CodeValidatorLevel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * This class handles database logic for functionality which has not
@@ -47,6 +49,8 @@ import java.util.Set;
  * be moved to DAOs.
  */
 public class DatabaseAccess {
+
+	private static final Logger logger = LoggerFactory.getLogger(MultiplayerGameManager.class);
 
     /**
      * Sanitises user input. If a whole SQL query is entered, syntax
@@ -232,18 +236,46 @@ public class DatabaseAccess {
 
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query);
-        Map<Integer, MultiplayerGame>  gameMap = new HashMap<>();
+        Map<Integer, MultiplayerGame> gameMap = new HashMap<>();
         try {
             ResultSet rs = stmt.executeQuery();
+			int id = rs.getInt("ID");
+			int classId = rs.getInt("Class_ID");
+			int creatorId = rs.getInt("Creator_ID");
+			GameState state = GameState.valueOf(rs.getString("State"));
+			GameLevel level = GameLevel.valueOf(rs.getString("Level"));
+			long startTime = rs.getTimestamp("Start_Time").getTime();
+			long finishTime = rs.getTimestamp("Finish_Time").getTime();
+			int maxAssertionsPerTest = rs.getInt("MaxAssertionsPerTest");
+			boolean chatEnabled = rs.getBoolean("ChatEnabled");
+			CodeValidatorLevel mutantValidator = CodeValidatorLevel.valueOf(rs.getString("MutantValidator"));
+			boolean markUncovered = rs.getBoolean("MarkUncovered");
+			boolean capturePlayersIntention = rs.getBoolean("CapturePlayersIntention");
+			int minDefenders = rs.getInt("Defenders_Needed");
+			int minAttackers = rs.getInt("Attackers_Needed");
+			boolean requiresValidation = rs.getBoolean("RequiresValidation");
+			int defenderLimit = rs.getInt("Defenders_Limit");
+			int attackerLimit = rs.getInt("Attackers_Limit");
+			float lineCoverage = rs.getFloat("Coverage_Goal");
+			float mutantCoverage = rs.getFloat("Mutant_Goal");
+			int defenderValue = rs.getInt("Defender_Value");
+			int attackerValue = rs.getInt("Attacker_Value");
             while (rs.next()) {
-                gameMap.put(rs.getInt("Attacker_Player_ID"), new MultiplayerGame(rs.getInt("Class_ID"), rs.getInt("Creator_ID"),
-                        GameLevel.valueOf(rs.getString("Level")), (float) rs.getDouble("Coverage_Goal"),
-                        (float) rs.getDouble("Mutant_Goal"), rs.getInt("Prize"), rs.getInt("Defender_Value"),
-                        rs.getInt("Attacker_Value"), rs.getInt("Defenders_Limit"), rs.getInt("Attackers_Limit"),
-                        rs.getInt("Defenders_Needed"), rs.getInt("Attackers_Needed"), rs.getTimestamp("Start_Time").getTime(),
-                        rs.getTimestamp("Finish_Time").getTime(), rs.getString("State"), rs.getBoolean("RequiresValidation"),
-                        rs.getInt("MaxAssertionsPerTest"),rs.getBoolean("ChatEnabled"),
-                        CodeValidatorLevel.valueOf(rs.getString("MutantValidator")), rs.getBoolean("MarkUncovered")));
+                gameMap.put(rs.getInt("Attacker_Player_ID"),new MultiplayerGame.Builder(classId, creatorId,
+						startTime, finishTime, maxAssertionsPerTest, defenderLimit, attackerLimit, minDefenders, minAttackers)
+						.id(id)
+						.state(state)
+						.level(level)
+						.attackerValue(attackerValue)
+						.defenderValue(defenderValue)
+						.chatEnabled(chatEnabled)
+						.markUncovered(markUncovered)
+						.capturePlayersIntention(capturePlayersIntention)
+						.mutantValidatorLevel(mutantValidator)
+						.requiresValidation(requiresValidation)
+						.lineCoverage(lineCoverage)
+						.mutantCoverage(mutantCoverage)
+						.build());
             }
         } catch (SQLException se) {
             logger.error("SQL exception caught", se);
@@ -269,17 +301,46 @@ public class DatabaseAccess {
         PreparedStatement stmt = DB.createPreparedStatement(conn, query);
         Map<Integer, MultiplayerGame>  gameMap = new HashMap<>();
         try {
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                gameMap.put(rs.getInt("Defender_Player_ID"), new MultiplayerGame(rs.getInt("Class_ID"), rs.getInt("Creator_ID"),
-                        GameLevel.valueOf(rs.getString("Level")), (float) rs.getDouble("Coverage_Goal"),
-                        (float) rs.getDouble("Mutant_Goal"), rs.getInt("Prize"), rs.getInt("Defender_Value"),
-                        rs.getInt("Attacker_Value"), rs.getInt("Defenders_Limit"), rs.getInt("Attackers_Limit"),
-                        rs.getInt("Defenders_Needed"), rs.getInt("Attackers_Needed"), rs.getTimestamp("Start_Time").getTime(),
-                        rs.getTimestamp("Finish_Time").getTime(), rs.getString("State"), rs.getBoolean("RequiresValidation"),
-                        rs.getInt("MaxAssertionsPerTest"),rs.getBoolean("ChatEnabled"),
-                        CodeValidatorLevel.valueOf(rs.getString("MutantValidator")), rs.getBoolean("MarkUncovered")));
-            }
+            // ERROR on startup with scheduleExecutor
+			ResultSet rs = stmt.executeQuery();
+			int id = rs.getInt("ID");
+			int classId = rs.getInt("Class_ID");
+			int creatorId = rs.getInt("Creator_ID");
+			GameState state = GameState.valueOf(rs.getString("State"));
+			GameLevel level = GameLevel.valueOf(rs.getString("Level"));
+			long startTime = rs.getTimestamp("Start_Time").getTime();
+			long finishTime = rs.getTimestamp("Finish_Time").getTime();
+			int maxAssertionsPerTest = rs.getInt("MaxAssertionsPerTest");
+			boolean chatEnabled = rs.getBoolean("ChatEnabled");
+			CodeValidatorLevel mutantValidator = CodeValidatorLevel.valueOf(rs.getString("MutantValidator"));
+			boolean markUncovered = rs.getBoolean("MarkUncovered");
+			boolean capturePlayersIntention = rs.getBoolean("CapturePlayersIntention");
+			int minDefenders = rs.getInt("Defenders_Needed");
+			int minAttackers = rs.getInt("Attackers_Needed");
+			boolean requiresValidation = rs.getBoolean("RequiresValidation");
+			int defenderLimit = rs.getInt("Defenders_Limit");
+			int attackerLimit = rs.getInt("Attackers_Limit");
+			float lineCoverage = rs.getFloat("Coverage_Goal");
+			float mutantCoverage = rs.getFloat("Mutant_Goal");
+			int defenderValue = rs.getInt("Defender_Value");
+			int attackerValue = rs.getInt("Attacker_Value");
+			while (rs.next()) {
+				gameMap.put(rs.getInt("Defender_Player_ID"),new MultiplayerGame.Builder(classId, creatorId,
+						startTime, finishTime, maxAssertionsPerTest, defenderLimit, attackerLimit, minDefenders, minAttackers)
+						.id(id)
+						.state(state)
+						.level(level)
+						.attackerValue(attackerValue)
+						.defenderValue(defenderValue)
+						.chatEnabled(chatEnabled)
+						.markUncovered(markUncovered)
+						.capturePlayersIntention(capturePlayersIntention)
+						.mutantValidatorLevel(mutantValidator)
+						.requiresValidation(requiresValidation)
+						.lineCoverage(lineCoverage)
+						.mutantCoverage(mutantCoverage)
+						.build());
+			}
         } catch (SQLException se) {
             logger.error("SQL exception caught", se);
         } catch (Exception e) {
@@ -292,8 +353,8 @@ public class DatabaseAccess {
 
 	public static void setPlayerIsActive(int playerId, boolean isActive) {
         String query = "UPDATE players SET Active=? WHERE ID=?";
-        DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(isActive),
-                DB.getDBV(playerId)};
+        DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(isActive),
+                DatabaseValue.of(playerId)};
         Connection conn = DB.getConnection();
         PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
         DB.executeUpdate(stmt, conn);
@@ -302,10 +363,10 @@ public class DatabaseAccess {
     public static boolean getPlayerIsActive(int playerId) {
         String query = "SELECT * FROM players WHERE ID=?;";
         Connection conn = DB.getConnection();
-        PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(playerId));
+        PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(playerId));
         boolean isActive = false;
         try {
-            ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+            ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 isActive = rs.getBoolean("Active");
             }
@@ -320,7 +381,7 @@ public class DatabaseAccess {
 	public static Integer getSimulationOriginGame(int gameId) {
 		String query = "SELECT * FROM games WHERE ID=?;";
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gameId));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(gameId));
 		try {
 			ResultSet rs = stmt.executeQuery();
 			if (rs.next()) {
@@ -395,12 +456,11 @@ public class DatabaseAccess {
 
 	public static List<GameClass> getAllClasses() {
 		List<GameClass> classList = new ArrayList<>();
-
 		String query = "SELECT * FROM classes;";
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query);
-		ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
 		try {
+			ResultSet rs = stmt.executeQuery();
 			while (rs.next()) {
 				classList.add(new GameClass(rs.getInt("Class_ID"), rs.getString("Name"), rs.getString("Alias"), rs.getString("JavaFile"), rs.getString("ClassFile"), rs.getBoolean("RequireMocking")));
 			}
@@ -414,13 +474,20 @@ public class DatabaseAccess {
 		return classList;
 	}
 
+	public static GameClass getClassForKey(String keyName, int id) {
+		String query = "SELECT * FROM classes WHERE " + keyName + "=?;";
+		Connection conn = DB.getConnection();
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(id));
+		return getClass(stmt, conn);
+	}
+
 	public static List<User> getAllUsers() {
 		List<User> uList = new ArrayList<>();
 		String query = "SELECT * FROM users";
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query);
-		ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
 		try {
+			ResultSet rs = stmt.executeQuery();
 			while (rs.next()) {
 				User userRecord = new User(rs.getInt("User_ID"), rs.getString("Username"), rs.getString("Password"), rs.getString("Email"), rs.getBoolean("Validated"), rs.getBoolean("Active"));
 				uList.add(userRecord);
@@ -442,7 +509,7 @@ public class DatabaseAccess {
 
 	public static User getUserForEmail(String email) {
 		String query = "SELECT * FROM users WHERE Email=?;";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(email)};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(email)};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return getUserFromDB(stmt, conn);
@@ -450,7 +517,7 @@ public class DatabaseAccess {
 
 	public static User getUserForName(String username) {
 		String query = "SELECT * FROM users WHERE Username=?;";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(username)};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(username)};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return getUserFromDB(stmt, conn);
@@ -459,14 +526,14 @@ public class DatabaseAccess {
 	public static User getUserFromPlayer(int playerId) {
 		String query = "SELECT * FROM users AS u " + "LEFT JOIN players AS p ON p.User_ID=u.User_ID " + "WHERE p.ID=?;";
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(playerId));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(playerId));
 		return getUserFromDB(stmt, conn);
 	}
 
 	public static User getUserForKey(String keyName, int id) {
 		String query = "SELECT * FROM users WHERE " + keyName + "=?;";
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(id));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(id));
 		return getUserFromDB(stmt, conn);
 	}
 
@@ -491,9 +558,9 @@ public class DatabaseAccess {
 		String query = "SELECT g.ID, g.Class_ID, g.Level, g.Creator_ID, g.State," + "g.CurrentRound, g.FinalRound, g.ActiveRole, g.Mode, g.Creator_ID,\n" + "IFNULL(att.User_ID,0) AS Attacker_ID, IFNULL(def.User_ID,0) AS Defender_ID\n" + "FROM games AS g\n" + "LEFT JOIN players AS att ON g.ID=att.Game_ID AND att.Role='ATTACKER' AND att.Active=TRUE\n" + "LEFT JOIN players AS def ON g.ID=def.Game_ID AND def.Role='DEFENDER' AND def.Active=TRUE\n" + "WHERE g." + keyName + "=?;\n";
 		// Load the MultiplayerGame Data with the provided ID.
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(id));
-		ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(id));
 		try {
+			ResultSet rs = stmt.executeQuery();
 			if (rs.next()) {
 				DuelGame gameRecord;
 				if (rs.getString("Mode").equals(GameMode.SINGLE.name()))
@@ -524,9 +591,9 @@ public class DatabaseAccess {
 	 */
 	public static List<DuelGame> getGamesForUser(int userId) {
 		String query = "SELECT g.ID, g.Class_ID, g.Level, g.Creator_ID, g.State, g.CurrentRound, g.FinalRound, g.ActiveRole, g.Mode, g.Creator_ID,\n" + "IFNULL(att.User_ID,0) AS Attacker_ID, IFNULL(def.User_ID,0) AS Defender_ID FROM games AS g LEFT JOIN players AS att ON g.ID=att.Game_ID  AND att.Role='ATTACKER' AND att.Active=TRUE\n" + "LEFT JOIN players AS def ON g.ID=def.Game_ID AND def.Role='DEFENDER' AND def.Active=TRUE WHERE g.Mode != 'PARTY' AND g.State!='FINISHED' AND (g.Creator_ID=? OR IFNULL(att.User_ID,0)=? OR IFNULL(def.User_ID,0)=?);";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(userId),
-				DB.getDBV(userId),
-				DB.getDBV(userId)};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(userId),
+				DatabaseValue.of(userId),
+				DatabaseValue.of(userId)};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return getGames(stmt, conn);
@@ -535,15 +602,15 @@ public class DatabaseAccess {
 	public static List<MultiplayerGame> getJoinedMultiplayerGamesForUser(int userId) {
 		String query = "SELECT DISTINCT m.* FROM games AS m " + "LEFT JOIN players AS p ON p.Game_ID=m.ID \n" + "WHERE m.Mode = 'PARTY' AND (p.User_ID=?);";
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(userId));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(userId));
 		return getMultiplayerGames(stmt, conn);
 	}
 
 	public static List<MultiplayerGame> getMultiplayerGamesForUser(int userId) {
 		String query = "SELECT DISTINCT m.* FROM games AS m LEFT JOIN players AS p ON p.Game_ID=m.ID  AND p.Active=TRUE" +
 				" WHERE m.Mode = 'PARTY' AND (p.User_ID=? OR m.Creator_ID=?) AND m.State != 'FINISHED' AND m.IsSimulationGame = FALSE;";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(userId),
-				DB.getDBV(userId)};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(userId),
+				DatabaseValue.of(userId)};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return getMultiplayerGames(stmt, conn);
@@ -551,8 +618,8 @@ public class DatabaseAccess {
 
 	public static List<MultiplayerGame> getFinishedMultiplayerGamesForUser(int userId) {
 		String query = "SELECT DISTINCT m.* FROM games AS m " + "LEFT JOIN players AS p ON p.Game_ID=m.ID  AND p.Active=TRUE \n" + "WHERE (p.User_ID=? OR m.Creator_ID=?) AND m.State = 'FINISHED' AND m.Mode='PARTY';";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(userId),
-				DB.getDBV(userId)};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(userId),
+				DatabaseValue.of(userId)};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return getMultiplayerGames(stmt, conn);
@@ -568,9 +635,9 @@ public class DatabaseAccess {
 				+ "AND g.ID NOT IN (SELECT g.ID FROM games g INNER JOIN players p ON g.ID=p.Game_ID WHERE p.User_ID=? AND p.Active=TRUE)\n"
 				+ "AND (nplayers.nAttackers < g.Attackers_Limit OR nplayers.nDefenders < g.Defenders_Limit)\n"
 				+ "AND g.IsSimulationGame = FALSE;";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(userId),
-				DB.getDBV(userId),
-				DB.getDBV(userId)};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(userId),
+				DatabaseValue.of(userId),
+				DatabaseValue.of(userId)};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return getMultiplayerGames(stmt, conn);
@@ -580,10 +647,10 @@ public class DatabaseAccess {
 		Role role = Role.NONE;
 		String query = "SELECT * FROM players WHERE ID = ?;";
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(playerId));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(playerId));
 
 		try {
-			ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+			ResultSet rs = stmt.executeQuery();
 			while (rs.next()) {
 				try {
 					role = Role.valueOf(rs.getString("Role"));
@@ -652,7 +719,7 @@ public class DatabaseAccess {
 	public static DuelGame getActiveUnitTestingSession(int userId) {
 		String query = "SELECT * FROM games WHERE Defender_ID=? AND Mode='UTESTING' AND State='ACTIVE';";
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(userId));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(userId));
 		List<DuelGame> games = getGames(stmt, conn);
 		if (games.isEmpty())
 			return null;
@@ -683,7 +750,7 @@ public class DatabaseAccess {
 	public static MultiplayerGame getMultiplayerGame(int id) {
 		String query = "SELECT * FROM games AS m WHERE ID=? AND m.Mode='PARTY'";
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(id));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(id));
 		List<MultiplayerGame> mgs = getMultiplayerGames(stmt, conn);
 		if (mgs.size() > 0) {
 			return mgs.get(0);
@@ -693,23 +760,53 @@ public class DatabaseAccess {
 
 	public static List<MultiplayerGame> getMultiplayerGames(PreparedStatement stmt, Connection conn) {
 		List<MultiplayerGame> gameList = new ArrayList<>();
+		Map<Integer, MultiplayerGame> gameMap = new HashMap<>();
 		try {
 			ResultSet rs = stmt.executeQuery();
 			while (rs.next()) {
-				MultiplayerGame mg = new MultiplayerGame(rs.getInt("Class_ID"), rs.getInt("Creator_ID"),
-						GameLevel.valueOf(rs.getString("Level")), (float) rs.getDouble("Coverage_Goal"),
-						(float) rs.getDouble("Mutant_Goal"), rs.getInt("Prize"), rs.getInt("Defender_Value"),
-						rs.getInt("Attacker_Value"), rs.getInt("Defenders_Limit"), rs.getInt("Attackers_Limit"),
-						rs.getInt("Defenders_Needed"), rs.getInt("Attackers_Needed"), rs.getTimestamp("Start_Time").getTime(),
-						rs.getTimestamp("Finish_Time").getTime(), rs.getString("State"), rs.getBoolean("RequiresValidation"),
-						rs.getInt("MaxAssertionsPerTest"),rs.getBoolean("ChatEnabled"),
-						CodeValidatorLevel.valueOf(rs.getString("MutantValidator")), rs.getBoolean("MarkUncovered"));
-				mg.setId(rs.getInt("ID"));
-				mg.setOriginGameId(rs.getInt("SimulationOriginGame_ID"));
-				if (rs.getString("AiStrat") != null) {
-					mg.setAiStrat(AiPlayer.GenerationMethod.valueOf(rs.getString("AiStrat")));
+				int id = rs.getInt("ID");
+				int classId = rs.getInt("Class_ID");
+				int creatorId = rs.getInt("Creator_ID");
+				GameState state = GameState.valueOf(rs.getString("State"));
+				GameLevel level = GameLevel.valueOf(rs.getString("Level"));
+				long startTime = rs.getTimestamp("Start_Time").getTime();
+				long finishTime = rs.getTimestamp("Finish_Time").getTime();
+				int maxAssertionsPerTest = rs.getInt("MaxAssertionsPerTest");
+				boolean chatEnabled = rs.getBoolean("ChatEnabled");
+				CodeValidatorLevel mutantValidator = CodeValidatorLevel.valueOf(rs.getString("MutantValidator"));
+				boolean markUncovered = rs.getBoolean("MarkUncovered");
+				boolean capturePlayersIntention = rs.getBoolean("CapturePlayersIntention");
+				int minDefenders = rs.getInt("Defenders_Needed");
+				int minAttackers = rs.getInt("Attackers_Needed");
+				boolean requiresValidation = rs.getBoolean("RequiresValidation");
+				int defenderLimit = rs.getInt("Defenders_Limit");
+				int attackerLimit = rs.getInt("Attackers_Limit");
+				float lineCoverage = rs.getFloat("Coverage_Goal");
+				float mutantCoverage = rs.getFloat("Mutant_Goal");
+				int defenderValue = rs.getInt("Defender_Value");
+				int attackerValue = rs.getInt("Attacker_Value");
+				while (rs.next()) {
+					MultiplayerGame mg = new MultiplayerGame.Builder(classId, creatorId,
+							startTime, finishTime, maxAssertionsPerTest, defenderLimit, attackerLimit, minDefenders, minAttackers)
+							.id(id)
+							.state(state)
+							.level(level)
+							.attackerValue(attackerValue)
+							.defenderValue(defenderValue)
+							.chatEnabled(chatEnabled)
+							.markUncovered(markUncovered)
+							.capturePlayersIntention(capturePlayersIntention)
+							.mutantValidatorLevel(mutantValidator)
+							.requiresValidation(requiresValidation)
+							.lineCoverage(lineCoverage)
+							.mutantCoverage(mutantCoverage)
+							.build();
+					mg.setOriginGameId(rs.getInt("SimulationOriginGame_ID"));
+					if (rs.getString("AiStrat") != null) {
+						mg.setAiStrat(AiPlayer.GenerationMethod.valueOf(rs.getString("AiStrat")));
+					}
+					gameList.add(mg);
 				}
-				gameList.add(mg);
 			}
 		} catch (SQLException se) {
 			logger.error("SQL exception caught", se);
@@ -729,8 +826,8 @@ public class DatabaseAccess {
 				"AND Player_ID!=? " +
 				"AND (mutants.Equivalent = 'ASSUMED_NO' OR mutants.Equivalent = 'PROVEN_NO') " +
 				"AND ClassFile IS NOT NULL;";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
-				DB.getDBV(playerId)};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(gameId),
+				DatabaseValue.of(playerId)};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return getMutants(stmt, conn);
@@ -744,7 +841,7 @@ public class DatabaseAccess {
 				"WHERE mutants.Game_ID=? AND mutants.ClassFile IS NOT NULL ",
 				"ORDER BY Timestamp;");
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gid));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(gid));
 		return getMutants(stmt, conn);
 	}
 
@@ -756,7 +853,7 @@ public class DatabaseAccess {
 				"WHERE mutants.Game_ID=? AND mutants.ClassFile IS NOT NULL AND (mutants.Equivalent = 'ASSUMED_NO' OR mutants.Equivalent = 'PROVEN_NO') ",
 				"ORDER BY Timestamp;");
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gid));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(gid));
 		return getMutants(stmt, conn);
 	}
 
@@ -767,7 +864,7 @@ public class DatabaseAccess {
 				"LEFT JOIN users ON players.User_ID = users.User_ID ",
 				"WHERE mutants.Player_ID=? AND mutants.ClassFile IS NOT NULL;");
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(pid));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(pid));
 		return getMutants(stmt, conn);
 	}
 
@@ -782,7 +879,7 @@ public class DatabaseAccess {
 				"  AND mutants.ClassFile IS NOT NULL;"
 		);
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(classId));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(classId));
 		return getMutants(stmt, conn);
 	}
 
@@ -791,7 +888,7 @@ public class DatabaseAccess {
 		try {
 			ResultSet rs = stmt.executeQuery();
 			if (rs.next()) {
-				newMutant = new Mutant(rs.getInt("Mutant_ID"), rs.getInt("Game_ID"),
+				newMutant = new Mutant(rs.getInt("Mutant_ID"), rs.getInt("Class_ID"), rs.getInt("Game_ID"),
 						rs.getString("JavaFile"), rs.getString("ClassFile"),
 						rs.getBoolean("Alive"), Mutant.Equivalence.valueOf(rs.getString("Equivalent")),
 						rs.getInt("RoundCreated"), rs.getInt("RoundKilled"), rs.getInt("Player_ID"));
@@ -812,8 +909,8 @@ public class DatabaseAccess {
 				"LEFT JOIN players ON players.ID=mutants.Player_ID ",
 				"LEFT JOIN users ON players.User_ID = users.User_ID ",
 				"WHERE mutants.Mutant_ID=? AND mutants.Game_ID=?;");
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(mutantID),
-				DB.getDBV(game.getId())};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(mutantID),
+				DatabaseValue.of(game.getId())};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return getMutantFromDB(stmt, conn);
@@ -825,8 +922,8 @@ public class DatabaseAccess {
 				"LEFT JOIN players ON players.ID=mutants.Player_ID ",
 				"LEFT JOIN users ON players.User_ID = users.User_ID ",
 				"WHERE mutants.Game_ID=? AND mutants.MD5=?;");
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
-				DB.getDBV(md5)};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(gameId),
+				DatabaseValue.of(md5)};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return getMutantFromDB(stmt, conn);
@@ -837,9 +934,9 @@ public class DatabaseAccess {
 
 		String query = "SELECT * FROM usedaitests WHERE Game_ID=?;";
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(g.getId()));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(g.getId()));
 		try {
-			ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+			ResultSet rs = stmt.executeQuery();
 			while (rs.next()) {
 				testList.add(rs.getInt("Value"));
 			}
@@ -904,7 +1001,7 @@ public class DatabaseAccess {
      * @param g            the game the mutant belongs to
      * @return
      */
-    public static boolean setAiMutantAsUsed(int mutantNumber, DuelGame g) {
+    public static boolean setAiMutantAsUsed(int mutantNumber, MultiplayerGame g) {
         String query = "INSERT INTO usedaimutants (Value, Game_ID) VALUES (?, ?);";
         DatabaseValue[] values = new DatabaseValue[]{
                 DatabaseValue.of(mutantNumber),
@@ -916,7 +1013,7 @@ public class DatabaseAccess {
     public static List<Test> getTestsForGame(int gid) {
         String query = "SELECT * FROM tests WHERE Game_ID=? AND ClassFile IS NOT NULL ORDER BY Timestamp;";
         Connection conn = DB.getConnection();
-        PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gid));
+        PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(gid));
         return getTests(stmt, conn);
     }
 
@@ -929,8 +1026,8 @@ public class DatabaseAccess {
                 + "      AND ex.Target='TEST_ORIGINAL'"
                 + "      AND ex.Status='SUCCESS'"
                 + "  );";
-        DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
-                DB.getDBV(playerId)};
+        DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(gameId),
+                DatabaseValue.of(playerId)};
         Connection conn = DB.getConnection();
         PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
         return getTests(stmt, conn);
@@ -939,35 +1036,20 @@ public class DatabaseAccess {
     public static Test getTestForId(int tid) {
         String query = "SELECT * FROM tests WHERE Test_ID=?;";
         Connection conn = DB.getConnection();
-        PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(tid));
+        PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(tid));
         return getTests(stmt, conn).get(0);
     }
 
     /**
      * Get games where a certain class is under test.
-     * @param gid
+     * @param
      * @return
      */
     public static List<MultiplayerGame> getGamesForClass(int cid) {
         String query = "SELECT * FROM games WHERE Class_ID = ? AND Mode = 'PARTY';";
         Connection conn = DB.getConnection();
-        PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(cid));
+        PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(cid));
         return getMultiplayerGames(stmt, conn);
-    }
-
-    // TODO Phil 27/12/18: this isn't limited to multiplayer games
-    public static int getPlayerIdForMultiplayerGame(int userId, int gameId) {
-        String query = String.join("\n",
-                "SELECT players.ID",
-                "FROM players",
-                "WHERE User_ID = ?",
-                "  AND Game_ID = ?");
-        DatabaseValue[] values = new DatabaseValue[]{
-                DatabaseValue.of(userId),
-                DatabaseValue.of(gameId)
-        };
-        final Integer id = DB.executeQueryReturnValue(query, rs -> rs.getInt("ID"), values);
-        return Optional.ofNullable(id).orElse(-1);
     }
 
 	/**
@@ -989,7 +1071,7 @@ public class DatabaseAccess {
 				 "  );"
 		);
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gameId));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(gameId));
 		return getTests(stmt, conn);
 	}
 
@@ -1006,7 +1088,7 @@ public class DatabaseAccess {
 				"	);"
 		);
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(gameId));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(gameId));
 		return getMutants(stmt, conn);
 	}
 
@@ -1025,17 +1107,35 @@ public class DatabaseAccess {
 				"  );"
 		);
 		Connection conn = DB.getConnection();
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DB.getDBV(classId));
+		PreparedStatement stmt = DB.createPreparedStatement(conn, query, DatabaseValue.of(classId));
 		return getTests(stmt, conn);
 	}
 
+	// TODO Phil 27/12/18: this isn't limited to multiplayer games
 	public static int getPlayerIdForMultiplayerGame(int userId, int gameId) {
 		String query = "SELECT * FROM players AS p " + "WHERE p.User_ID = ? AND p.Game_ID = ?";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(userId),
-				DB.getDBV(gameId)};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(userId),
+				DatabaseValue.of(gameId)};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		return getInt(stmt, "ID", conn);
+	}
+
+	public static int getInt(PreparedStatement stmt, String att, Connection conn) {
+		int n = -1;
+		try {
+			final ResultSet rs = stmt.executeQuery();
+			if (rs.next()) {
+				n = rs.getInt(att);
+			}
+		} catch (SQLException se) {
+			logger.error("SQL exception caught", se);
+		} catch (Exception e) {
+			logger.error("Exception caught", e);
+		} finally {
+			DB.cleanup(conn, stmt);
+		}
+		return n;
 	}
 
 	/**
@@ -1049,13 +1149,13 @@ public class DatabaseAccess {
 	public static int[] getInactiveAndActivePlayersForMultiplayerGame(int gameId, Role role) {
 		int[] players = new int[0];
 		String query = "SELECT * FROM players WHERE Game_ID = ? AND Role=?;";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
-				DB.getDBV(role.toString())};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(gameId),
+				DatabaseValue.of(role.toString())};
 		// Load the MultiplayerGame Data with the provided ID.
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		try {
-			ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+			ResultSet rs = stmt.executeQuery();
 			List<Integer> atks = new ArrayList<>();
 			while (rs.next()) {
 				atks.add(rs.getInt("ID"));
@@ -1075,12 +1175,12 @@ public class DatabaseAccess {
 	public static int[] getUserIdsForMultiplayerGame(int gameId, Role role) {
 		int[] players = new int[0];
 		String query = "SELECT * FROM players WHERE Game_ID = ? AND Role=? AND Active=TRUE;";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
-				DB.getDBV(role.toString())};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(gameId),
+				DatabaseValue.of(role.toString())};
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		try {
-			ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+			ResultSet rs = stmt.executeQuery();
 			List<Integer> atks = new ArrayList<>();
 			while (rs.next()) {
 				atks.add(rs.getInt("User_ID"));
@@ -1100,13 +1200,13 @@ public class DatabaseAccess {
 	public static int[] getPlayersForMultiplayerGame(int gameId, Role role) {
 		int[] players = new int[0];
 		String query = "SELECT * FROM players WHERE Game_ID = ? AND Role=? AND Active=TRUE ORDER BY ID ASC;";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(gameId),
-				DB.getDBV(role.toString())};
+		DatabaseValue[] valueList = new DatabaseValue[]{DatabaseValue.of(gameId),
+				DatabaseValue.of(role.toString())};
 		// Load the MultiplayerGame Data with the provided ID.
 		Connection conn = DB.getConnection();
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 		try {
-			ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+			ResultSet rs = stmt.executeQuery();
 			List<Integer> atks = new ArrayList<>();
 			while (rs.next()) {
 				atks.add(rs.getInt("ID"));
@@ -1139,7 +1239,7 @@ public class DatabaseAccess {
 				if (linesUncovered != null && !linesUncovered.isEmpty()) {
 					uncovered.addAll(Arrays.stream(linesUncovered.split(",")).map(Integer::parseInt).collect(Collectors.toList()));
 				}
-				Test newTest = new Test(rs.getInt("Test_ID"), rs.getInt("Game_ID"),
+				Test newTest = new Test(rs.getInt("Test_ID"), rs.getInt("Class_ID"), rs.getInt("Game_ID"),
 						rs.getString("JavaFile"), rs.getString("ClassFile"),
 						rs.getInt("RoundCreated"), rs.getInt("MutantsKilled"), rs.getInt("Player_ID"),
 						covered, uncovered, rs.getInt("Points"));
@@ -1163,7 +1263,7 @@ public class DatabaseAccess {
 			// Load the MultiplayerGame Data with the provided ID.
 			ResultSet rs = stmt.executeQuery();
 			while (rs.next()) {
-				Mutant newMutant = new Mutant(rs.getInt("Mutant_ID"), rs.getInt("Game_ID"),
+				Mutant newMutant = new Mutant(rs.getInt("Mutant_ID"), rs.getInt("Class_ID"), rs.getInt("Game_ID"),
 						rs.getString("JavaFile"), rs.getString("ClassFile"),
 						rs.getBoolean("Alive"), Mutant.Equivalence.valueOf(rs.getString("Equivalent")),
 						rs.getInt("RoundCreated"), rs.getInt("RoundKilled"), rs.getInt("Player_ID"));
@@ -1174,7 +1274,28 @@ public class DatabaseAccess {
 					String username = rs.getString("users.Username");
 					int userId = rs.getInt("users.User_ID");
 
-    static Entry entryFromRS(ResultSet rs) throws SQLException {
+					newMutant.setCreatorName(username);
+					newMutant.setCreatorId(userId);
+
+				} catch (SQLException e2){
+					// Username/ID cannot be retrieved from query (Join wasn't included in query)
+				}
+
+				mutantsList.add(newMutant);
+			}
+		} catch (SQLException se) {
+			logger.error("SQL exception caught", se);
+			return null;
+		} catch (Exception e) {
+			logger.error("Exception caught", e);
+			return null;
+		} finally {
+			DB.cleanup(conn, stmt);
+		}
+		return mutantsList;
+	}
+
+    public static Entry entryFromRS(ResultSet rs) throws SQLException {
         Entry p = new Entry();
         p.setUsername(rs.getString("username"));
         p.setMutantsSubmitted(rs.getInt("NMutants"));

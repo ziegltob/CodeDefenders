@@ -314,7 +314,7 @@ public class Installer {
 
         String md5 = CodeValidator.getMD5FromText(mutantFileContent);
         Mutant mutant = new Mutant(javaFilePath, classFilePath, md5, cut.getId());
-        mutant.insert();
+        mutant.insert(true);
         MutantDAO.mapMutantToClass(mutant.getId(), cut.getId());
 
         logger.info("installMutant(): Stored mutant " + mutant.getId() + " in position " + targetPosition);
@@ -362,7 +362,7 @@ public class Installer {
 
         LineCoverage lineCoverage = LineCoverageGenerator.generate(cut, javaFilePath);
         Test test = new Test(javaFilePath.toString(), classFilePath, cut.getId(), lineCoverage);
-        test.insert();
+        test.insert(true);
         TestDAO.mapTestToClass(test.getId(), cut.getId());
 
         logger.info("installTest() Stored test " + test.getId() + " in position " + targetPosition);
@@ -486,7 +486,7 @@ public class Installer {
         // TODO batch insert
         for (Mutant m : originalMutants) {
             Mutant puzzleMutant = new Mutant(m.getJavaFile(), m.getClassFile(), m.getMd5(), puzzleClassId);
-            puzzleMutant.insert();
+            puzzleMutant.insert(true);
             MutantDAO.mapMutantToClass(puzzleMutant.getId(), puzzleClassId);
             logger.info("installPuzzle(); Created Puzzle Mutant " + puzzleMutant.getId());
             puzzleMutants.add(puzzleMutant);
@@ -496,7 +496,7 @@ public class Installer {
         // TODO batch insert
         for (Test t : originalTests) {
             Test puzzleTest = new Test(t.getJavaFile(), t.getClassFile(), puzzleClassId, t.getLineCoverage());
-            puzzleTest.insert();
+            puzzleTest.insert(true);
             TestDAO.mapTestToClass(puzzleTest.getId(), puzzleClassId);
             logger.info("installPuzzle(); Created Puzzle Test " + puzzleTest.getId());
             puzzleTests.add(puzzleTest);

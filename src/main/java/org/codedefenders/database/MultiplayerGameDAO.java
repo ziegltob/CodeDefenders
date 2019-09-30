@@ -22,6 +22,7 @@ import org.codedefenders.game.GameLevel;
 import org.codedefenders.game.GameMode;
 import org.codedefenders.game.GameState;
 import org.codedefenders.game.multiplayer.MultiplayerGame;
+import org.codedefenders.game.singleplayer.AiPlayer;
 import org.codedefenders.validation.code.CodeValidatorLevel;
 
 import java.sql.ResultSet;
@@ -112,8 +113,8 @@ public class MultiplayerGameDAO {
         int minDefenders = game.getMinDefenders();
         int attackerLimit = game.getAttackerLimit();
         int defenderLimit = game.getDefenderLimit();
-        long startDateTime = game.getStartDateTime();
-        long finishDateTime = game.getFinishDateTime();
+        long startDateTime = game.getStartInLong();
+        long finishDateTime = game.getFinishTimeInLong();
         GameState state = game.getState();
         int maxAssertionsPerTest = game.getMaxAssertionsPerTest();
         boolean chatEnabled = game.isChatEnabled();
@@ -121,6 +122,9 @@ public class MultiplayerGameDAO {
         boolean markUncovered = game.isMarkUncovered();
         boolean capturePlayersIntention = game.isCapturePlayersIntention();
         GameMode mode = game.getMode();
+        boolean isSimulationGame = game.isSimulationGame();
+        int simulationOriginGame = game.getOriginGameId();
+        String aiStrat = game.getAiStrat() != null ? game.getAiStrat().toString() : null;
 
         String query = String.join("\n",
                 "INSERT INTO games",
@@ -144,8 +148,11 @@ public class MultiplayerGameDAO {
                 "ChatEnabled,",
                 "MutantValidator,",
                 "MarkUncovered,",
-                "CapturePlayersIntention)",
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);");
+                "CapturePlayersIntention,",
+                "IsSimulationGame,",
+                "SimulationOriginGame_ID,",
+                "AiStrat)",
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);");
         DatabaseValue[] values = new DatabaseValue[]{
                 DatabaseValue.of(classId),
                 DatabaseValue.of(level.name()),
@@ -167,7 +174,10 @@ public class MultiplayerGameDAO {
                 DatabaseValue.of(chatEnabled),
                 DatabaseValue.of(mutantValidatorLevel.name()),
                 DatabaseValue.of(markUncovered),
-                DatabaseValue.of(capturePlayersIntention)
+                DatabaseValue.of(capturePlayersIntention),
+                DatabaseValue.of(isSimulationGame),
+                DatabaseValue.of(simulationOriginGame),
+                DatabaseValue.of(aiStrat)
         };
 
         final int result = DB.executeUpdateQueryGetKeys(query, values);
@@ -206,7 +216,8 @@ public class MultiplayerGameDAO {
                 "    Attacker_Value = ?,",
                 "    Coverage_Goal = ?,",
                 "    Mutant_Goal = ?,",
-                "    State = ?",
+                "    State = ?,",
+                "    IsSimulationGame = ?",
                 "WHERE ID = ?"
         );
         DatabaseValue[] values = new DatabaseValue[]{
@@ -218,6 +229,7 @@ public class MultiplayerGameDAO {
                 DatabaseValue.of(lineCoverage),
                 DatabaseValue.of(mutantCoverage),
                 DatabaseValue.of(state.name()),
+                DatabaseValue.of(game.isSimulationGame()),
                 DatabaseValue.of(id)};
 
         return DB.executeUpdateQuery(query, values);

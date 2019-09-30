@@ -612,7 +612,7 @@ public class ClassUploadManager extends HttpServlet {
             final String md5 = CodeValidator.getMD5FromText(fileContent);
             final Mutant mutant = new Mutant(javaFilePath, classFilePath, md5, cutId);
             try {
-                mutantId = MutantDAO.storeMutant(mutant);
+                mutantId = MutantDAO.storeMutant(mutant, true);
                 MutantDAO.mapMutantToClass(mutantId, cutId);
             } catch (Exception e) {
                 logger.error("Class upload with mutant failed. Could not store mutant to database.");
@@ -738,7 +738,7 @@ public class ClassUploadManager extends HttpServlet {
             final LineCoverage lineCoverage = LineCoverageGenerator.generate(cut, Paths.get(javaFilePath));
             final Test test = new Test(javaFilePath, classFilePath, cutId, lineCoverage);
             try {
-                testId = TestDAO.storeTest(test);
+                testId = TestDAO.storeTest(test, true);
                 TestDAO.mapTestToClass(testId, cutId);
             } catch (UncheckedSQLException e) {
                 logger.error("Class upload with mutant failed. Could not store test to database.");

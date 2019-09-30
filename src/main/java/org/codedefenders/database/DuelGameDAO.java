@@ -83,8 +83,8 @@ public class DuelGameDAO {
      */
     public static int storeDuelGame(DuelGame game) throws UncheckedSQLException {
         String query = String.join("\n",
-                "INSERT INTO games (Class_ID, Creator_ID, FinalRound, Level, Mode, State)",
-                "VALUES (?, ?, ?, ?, ?, ?);");
+                "INSERT INTO games (Class_ID, Creator_ID, FinalRound, Level, Mode, State, IsAIDummyGame)",
+                "VALUES (?, ?, ?, ?, ?, ?, ?);");
 
         int classId = game.getClassId();
         int attackerId = game.getAttackerId();
@@ -100,7 +100,8 @@ public class DuelGameDAO {
                 DatabaseValue.of(finalRound),
                 DatabaseValue.of(level.name()),
                 DatabaseValue.of(mode.name()),
-                DatabaseValue.of(state.name())
+                DatabaseValue.of(state.name()),
+                DatabaseValue.of(game.isAIDummyGame())
         };
         final int result = DB.executeUpdateQueryGetKeys(query, values);
         if (result != -1) {

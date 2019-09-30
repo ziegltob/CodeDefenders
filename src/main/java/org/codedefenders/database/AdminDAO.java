@@ -18,8 +18,14 @@
  */
 package org.codedefenders.database;
 
+import org.codedefenders.game.GameLevel;
+import org.codedefenders.game.GameState;
+import org.codedefenders.game.Role;
 import org.codedefenders.game.leaderboard.Entry;
+import org.codedefenders.game.multiplayer.MultiplayerGame;
+import org.codedefenders.model.User;
 import org.codedefenders.servlets.admin.AdminSystemSettings;
+import org.codedefenders.validation.code.CodeValidatorLevel;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -28,6 +34,8 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AdminDAO {
 
@@ -353,12 +361,11 @@ public class AdminDAO {
     }
 
     public static List<User> getUsers(String query) {
+        List<User> activeUsers = new ArrayList<User>();
         Connection conn = DB.getConnection();
         PreparedStatement stmt = DB.createPreparedStatement(conn, query);
-        ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
-
-        List<User> activeUsers = new ArrayList<User>();
         try {
+        ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 User userRecord = new User(rs.getInt("User_ID"), rs.getString("Username"), rs.getString("Password"), rs.getString("Email"), rs.getBoolean("Validated"), rs.getBoolean("Active"));
                 userRecord.setId(rs.getInt("User_ID"));
@@ -382,15 +389,42 @@ public class AdminDAO {
         List<MultiplayerGame> gamesList = new ArrayList<MultiplayerGame>();
         try {
             while (rs.next()) {
-                MultiplayerGame mg = new MultiplayerGame(rs.getInt("Class_ID"), rs.getInt("Creator_ID"),
-                        GameLevel.valueOf(rs.getString("Level")), (float) rs.getDouble("Coverage_Goal"),
-                        (float) rs.getDouble("Mutant_Goal"), rs.getInt("Prize"), rs.getInt("Defender_Value"),
-                        rs.getInt("Attacker_Value"), rs.getInt("Defenders_Limit"), rs.getInt("Attackers_Limit"),
-                        rs.getInt("Defenders_Needed"), rs.getInt("Attackers_Needed"), rs.getTimestamp("Start_Time").getTime(),
-                        rs.getTimestamp("Finish_Time").getTime(), rs.getString("State"), rs.getBoolean("RequiresValidation"),
-                        rs.getInt("MaxAssertionsPerTest"),rs.getBoolean("ChatEnabled"),
-                        CodeValidatorLevel.valueOf(rs.getString("MutantValidator")), rs.getBoolean("MarkUncovered"));
-                mg.setId(rs.getInt("ID"));
+                int id = rs.getInt("ID");
+                int classId = rs.getInt("Class_ID");
+                int creatorId = rs.getInt("Creator_ID");
+                GameState state = GameState.valueOf(rs.getString("State"));
+                GameLevel level = GameLevel.valueOf(rs.getString("Level"));
+                long startTime = rs.getTimestamp("Start_Time").getTime();
+                long finishTime = rs.getTimestamp("Finish_Time").getTime();
+                int maxAssertionsPerTest = rs.getInt("MaxAssertionsPerTest");
+                boolean chatEnabled = rs.getBoolean("ChatEnabled");
+                CodeValidatorLevel mutantValidator = CodeValidatorLevel.valueOf(rs.getString("MutantValidator"));
+                boolean markUncovered = rs.getBoolean("MarkUncovered");
+                boolean capturePlayersIntention = rs.getBoolean("CapturePlayersIntention");
+                int minDefenders = rs.getInt("Defenders_Needed");
+                int minAttackers = rs.getInt("Attackers_Needed");
+                boolean requiresValidation = rs.getBoolean("RequiresValidation");
+                int defenderLimit = rs.getInt("Defenders_Limit");
+                int attackerLimit = rs.getInt("Attackers_Limit");
+                float lineCoverage = rs.getFloat("Coverage_Goal");
+                float mutantCoverage = rs.getFloat("Mutant_Goal");
+                int defenderValue = rs.getInt("Defender_Value");
+                int attackerValue = rs.getInt("Attacker_Value");
+                 MultiplayerGame mg = new MultiplayerGame.Builder(classId, creatorId,
+                        startTime, finishTime, maxAssertionsPerTest, defenderLimit, attackerLimit, minDefenders, minAttackers)
+                        .id(id)
+                        .state(state)
+                        .level(level)
+                        .attackerValue(attackerValue)
+                        .defenderValue(defenderValue)
+                        .chatEnabled(chatEnabled)
+                        .markUncovered(markUncovered)
+                        .capturePlayersIntention(capturePlayersIntention)
+                        .mutantValidatorLevel(mutantValidator)
+                        .requiresValidation(requiresValidation)
+                        .lineCoverage(lineCoverage)
+                        .mutantCoverage(mutantCoverage)
+                        .build();
                 gamesList.add(mg);
             }
         } catch (SQLException se) {
@@ -403,69 +437,33 @@ public class AdminDAO {
         return gamesList;
     }
 
-
-    public static List<MultiplayerGame> getAvailableGames() {
-        Connection conn = DB.getConnection();
-        PreparedStatement stmt = DB.createPreparedStatement(conn, AVAILABLE_GAMES_QUERY);
-        ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
-        return getGamesFromRS(rs, conn, stmt);
-    }
-
-    public static List<MultiplayerGame> getUnfinishedMultiplayerGames() {
-        Connection conn = DB.getConnection();
-        PreparedStatement stmt = DB.createPreparedStatement(conn, UNFINISHED_MULTIPLAYER_GAMES_QUERY);
-        ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
-        return getGamesFromRS(rs, conn, stmt);
-    }
-
-    public static List<MultiplayerGame> getUnfinishedMultiplayerGamesCreatedBy(int userID) {
-        Connection conn = DB.getConnection();
-        PreparedStatement stmt = DB.createPreparedStatement(conn, UNFINISHED_MULTIPLAYER_GAMES_BY_USER_QUERY, DB.getDBV(userID));
-        ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
-        return getGamesFromRS(rs, conn, stmt);
-    }
-
     public static List<MultiplayerGame> getFinishedMultiplayerGamesWithPlayersCreatedBy(int userID) {
         Connection conn = DB.getConnection();
-        PreparedStatement stmt = DB.createPreparedStatement(conn, FINISHED_MULTIPLAYER_GAMES_BY_USER_QUERY, DB.getDBV(userID));
-        ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
+        PreparedStatement stmt = DB.createPreparedStatement(conn, FINISHED_MULTIPLAYER_GAMES_BY_USER_QUERY, DatabaseValue.of(userID));
+        ResultSet rs = null;
+        try {
+            rs = stmt.executeQuery();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
         return getGamesFromRS(rs, conn, stmt);
     }
 
     public static List<MultiplayerGame> getSimulatedGamesByCreator(int userID) {
         Connection conn = DB.getConnection();
-        PreparedStatement stmt = DB.createPreparedStatement(conn, SIMULATED_GAMES_BY_USER, DB.getDBV(userID));
+        PreparedStatement stmt = DB.createPreparedStatement(conn, SIMULATED_GAMES_BY_USER, DatabaseValue.of(userID));
         return DatabaseAccess.getMultiplayerGames(stmt, conn);
     }
 
     public static List<MultiplayerGame> getMultiplayerSimulationGamesCreatedBy(int userID) {
         Connection conn = DB.getConnection();
-        PreparedStatement stmt = DB.createPreparedStatement(conn, SIMULATION_MULTIPLAYER_GAMES_BY_USER_QUERY, DB.getDBV(userID));
+        PreparedStatement stmt = DB.createPreparedStatement(conn, SIMULATION_MULTIPLAYER_GAMES_BY_USER_QUERY, DatabaseValue.of(userID));
         return DatabaseAccess.getMultiplayerGames(stmt, conn);
     }
 
-
-    public static Role getLastRole(int uid) {
+    /*public static Entry getScore(int userID) {
         Connection conn = DB.getConnection();
-        PreparedStatement stmt = DB.createPreparedStatement(conn, LAST_ROLE_QUERY, DB.getDBV(uid));
-        ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
-        try {
-            if (rs.next()) {
-                return Role.valueOf(rs.getString(3));
-            }
-        } catch (SQLException se) {
-            logger.error("SQL exception caught", se);
-        } catch (Exception e) {
-            logger.error("Exception caught", e);
-        } finally {
-            DB.cleanup(conn, stmt);
-        }
-        return null;
-    }
-
-    public static Entry getScore(int userID) {
-        Connection conn = DB.getConnection();
-        PreparedStatement stmt = DB.createPreparedStatement(conn, USER_SCORE_QUERY, DB.getDBV(userID));
+        PreparedStatement stmt = DB.createPreparedStatement(conn, USER_SCORE_QUERY, DatabaseValue.of(userID));
         ResultSet rs = DB.executeQueryReturnRS(conn, stmt);
         try {
             if (rs.next()) {
@@ -488,7 +486,7 @@ public class AdminDAO {
             DB.cleanup(conn, stmt);
         }
         return null;
-    }
+    }*/
 
     public static boolean deletePlayerTest(int pid) {
         String query = "DELETE FROM tests WHERE Player_ID =?;";
@@ -775,6 +773,21 @@ public class AdminDAO {
                 "WHERE name = ?;");
 
         return DB.executeUpdateQuery(query, value, DatabaseValue.of(setting.getName().name()));
+    }
+
+    private static AdminSystemSettings.SettingsDTO settingFromRS(ResultSet rs) throws SQLException {
+        AdminSystemSettings.SETTING_NAME name = AdminSystemSettings.SETTING_NAME.valueOf(rs.getString("name"));
+        AdminSystemSettings.SETTING_TYPE settingType = AdminSystemSettings.SETTING_TYPE.valueOf(rs.getString("type"));
+        switch (settingType) {
+            case STRING_VALUE:
+                return new AdminSystemSettings.SettingsDTO(name, rs.getString(settingType.name()));
+            case INT_VALUE:
+                return new AdminSystemSettings.SettingsDTO(name,rs.getInt(settingType.name()));
+            case BOOL_VALUE:
+                return new AdminSystemSettings.SettingsDTO(name,rs.getBoolean(settingType.name()));
+            default:
+                return null;
+        }
     }
 
     private static List<AdminSystemSettings.SettingsDTO> getSettings(ResultSet rs, Connection conn, PreparedStatement stmt) {

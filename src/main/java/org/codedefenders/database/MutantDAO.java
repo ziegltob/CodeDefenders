@@ -188,9 +188,16 @@ public class MutantDAO {
      * @return the generated identifier of the mutant as an {@code int}.
      * @throws Exception If storing the mutant was not successful.
      */
-    public static int storeMutant(Mutant mutant) throws Exception {
-        String javaFile = DatabaseAccess.addSlashes(mutant.getJavaFile());
-        String classFile = DatabaseAccess.addSlashes(mutant.getClassFile());
+    public static int storeMutant(Mutant mutant, boolean shouldAddSlashes) throws Exception {
+        String javaFile;
+        String classFile;
+        if (shouldAddSlashes) {
+            javaFile = DatabaseAccess.addSlashes(mutant.getJavaFile());
+            classFile = DatabaseAccess.addSlashes(mutant.getClassFile());
+        } else {
+            javaFile = mutant.getJavaFile();
+            classFile = mutant.getClassFile();
+        }
         int gameId = mutant.getGameId();
         int classId = mutant.getClassId();
         int roundCreated = mutant.getRoundCreated();
@@ -202,13 +209,14 @@ public class MutantDAO {
         String mutatedLinesString = StringUtils.join(mutant.getLines(), ",");
 
         String query = String.join("\n",
-                "INSERT INTO mutants (JavaFile, ClassFile, Game_ID, RoundCreated, Equivalent, Alive, Player_ID, Points, MD5, Class_ID, MutatedLines)",
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
+                "INSERT INTO mutants (JavaFile, ClassFile, Game_ID, Timestamp, RoundCreated, Equivalent, Alive, Player_ID, Points, MD5, Class_ID, MutatedLines)",
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
         );
         DatabaseValue[] values = new DatabaseValue[]{
                 DatabaseValue.of(javaFile),
                 DatabaseValue.of(classFile),
                 DatabaseValue.of(gameId),
+                DatabaseValue.of(mutant.getTimestamp()),
                 DatabaseValue.of(roundCreated),
                 DatabaseValue.of(equivalent.name()),
                 DatabaseValue.of(sqlAlive),

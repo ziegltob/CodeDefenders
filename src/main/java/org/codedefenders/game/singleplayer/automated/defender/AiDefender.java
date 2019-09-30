@@ -20,11 +20,11 @@ package org.codedefenders.game.singleplayer.automated.defender;
 
 import org.codedefenders.database.DatabaseAccess;
 import org.apache.commons.lang3.Range;
+import org.codedefenders.database.TestDAO;
 import org.codedefenders.execution.AntRunner;
 import org.codedefenders.execution.MutationTester;
 import org.codedefenders.execution.TargetExecution;
 import org.codedefenders.execution.ExecutorPool;
-import org.codedefenders.game.LineCoverage;
 import org.codedefenders.game.Mutant;
 import org.codedefenders.game.*;
 import org.codedefenders.game.Test;
@@ -32,20 +32,13 @@ import org.codedefenders.game.duel.DuelGame;
 import org.codedefenders.game.multiplayer.PlayerScore;
 import org.codedefenders.game.singleplayer.AiPlayer;
 import org.codedefenders.game.singleplayer.NoDummyGameException;
-import org.codedefenders.database.DatabaseAccess;
-import org.codedefenders.execution.TargetExecution;
 import org.codedefenders.database.AdminDAO;
 import org.codedefenders.servlets.admin.AdminSystemSettings;
-import org.codedefenders.game.singleplayer.PrepareAI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -294,18 +287,19 @@ public class AiDefender extends AiPlayer {
 
 				String cFile = origTest.getClassFile();
 				int playerId = DatabaseAccess.getPlayerIdForMultiplayerGame(ID, game.getId());
-				Test t = new Test(game.getId(), jFile, cFile, playerId);
+				//TODO: ADD ACTUAL CLASSID OR MAYBE EVEN OTHER CONSTRUCTOR
+				Test t = new Test(-5,game.getId(), jFile, cFile, playerId);
 				File dir = new File(origTest.getDirectory());
-				t.insert(false);
+				TestDAO.storeTest(t, false);
 				t.setLineCoverage(origTest.getLineCoverage());
 				t.update();
 
 				// Insert target executions since the tests have already been compiled when the players submitted them
 				// There might be issues with the compiled tests but when the class is not compiled it was
 				// recompiled in line 247 (theoretically this could also go wrong but then it just won't score)
-				TargetExecution newExec = new TargetExecution(t.getId(), 0, TargetExecution.Target.COMPILE_TEST, "SUCCESS", null);
+				TargetExecution newExec = new TargetExecution(t.getId(), 0, TargetExecution.Target.COMPILE_TEST, TargetExecution.Status.SUCCESS, null);
 				newExec.insert();
-				TargetExecution testExecution = new TargetExecution(t.getId(), 0, TargetExecution.Target.TEST_ORIGINAL, "SUCCESS", null);
+				TargetExecution testExecution = new TargetExecution(t.getId(), 0, TargetExecution.Target.TEST_ORIGINAL, TargetExecution.Status.SUCCESS, null);
 				testExecution.insert();
 				MutationTester.runTestOnAllMultiplayerMutants(multiplayerGame, t, messages);
 				DatabaseAccess.setAiTestAsUsed(origTestNum, game);

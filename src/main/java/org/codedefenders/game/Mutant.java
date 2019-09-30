@@ -34,6 +34,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
@@ -477,41 +479,14 @@ public class Mutant implements Serializable {
 		return lines;
 	}
 
-	// insert will run once after mutant creation.
-	// Stores values of JavaFile, ClassFile, GameID, RoundCreated in DB. These will not change once input.
-	// Default values for Equivalent (ASSUMED_NO), Alive(1), RoundKilled(NULL) are assigned.
-	// Currently Mutant ID isnt set yet after insertion, if Mutant needs to be used straight away it needs a similar insert method to MultiplayerGame.
-	@Deprecated
-	public boolean insert(boolean addSlashes) {
-		logger.info("Inserting mutant");
-		Connection conn = DB.getConnection();
-		String jFileDB;
-		String cFileDB;
-		if (addSlashes) {
-			jFileDB = DatabaseAccess.addSlashes(javaFile);
-			cFileDB = classFile == null ? null : DatabaseAccess.addSlashes(classFile);
-		} else {
-			jFileDB = javaFile;
-			cFileDB = classFile == null ? null : classFile;
-		}
-		String query = "INSERT INTO mutants (JavaFile, ClassFile, Game_ID, RoundCreated, Timestamp, Alive, Player_ID, Points, MD5)" +
-				" VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
-		DatabaseValue[] valueList = new DatabaseValue[]{DB.getDBV(jFileDB),
-				DB.getDBV(cFileDB),
-				DB.getDBV(gameId),
-				DB.getDBV(roundCreated),
-				DB.getDBV(timestamp),
-				DB.getDBV(sqlAlive()),
-				DB.getDBV(playerId),
-				DB.getDBV(score),
-				DB.getDBV(md5)};
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
-		int res = DB.executeUpdateGetKeys(stmt, conn);
-		if (res > -1) {
-			this.id = res;
+	public boolean insert(boolean shouldAddSlashes) {
+		try {
+			this.id = MutantDAO.storeMutant(this, shouldAddSlashes);
 			return true;
+		} catch (Exception e) {
+			logger.error("Inserting mutants resulted in error.", e);
+			return false;
 		}
-		return false;
 	}
 
 	// update will run when changes to a mutant are made.
@@ -526,13 +501,13 @@ public class Mutant implements Serializable {
 		// We cannot update killed mutants
 		String query = "UPDATE mutants SET ClassFile=?, Equivalent=?, Alive=?, RoundKilled=?, NumberAiKillingTests=?, Points=? WHERE Mutant_ID=? AND Alive=1;";
 		DatabaseValue[] valueList = new DatabaseValue[]{
-				DB.getDBV(classFile),
-				DB.getDBV(equivalent.name()),
-				DB.getDBV(sqlAlive()),
-				DB.getDBV(roundKilled),
-				DB.getDBV(killedByAITests),
-				DB.getDBV(score),
-				DB.getDBV(id)};
+				DatabaseValue.of(classFile),
+				DatabaseValue.of(equivalent.name()),
+				DatabaseValue.of(sqlAlive()),
+				DatabaseValue.of(roundKilled),
+				DatabaseValue.of(killedByAITests),
+				DatabaseValue.of(score),
+				DatabaseValue.of(id)};
 		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
 
 		return DB.executeUpdate(stmt, conn);
@@ -734,10 +709,5 @@ public class Mutant implements Serializable {
 
 	public void setLines(List<Integer> mutatedLines) {
 		this.lines = mutatedLines;
-	}
-
-	@Override
-	public String toString() {
-		return "[mutantId=" + getId() + ",alive="+ isAlive() + ",equivalent=" + getEquivalent() + ",score=" + getScore() + "]";
 	}
 }

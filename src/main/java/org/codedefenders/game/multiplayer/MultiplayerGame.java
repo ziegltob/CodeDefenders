@@ -307,11 +307,20 @@ public class MultiplayerGame extends AbstractGame {
 		return  this.startDateTime;
 	}
 
+	public long getFinishTimeInLong() {
+		return  this.finishDateTime;
+	}
+
 	public String getStartDateTime() {
 		Date date = new Date(startDateTime);
 		Format format = new SimpleDateFormat("yy/MM/dd HH:mm");
 		return format.format(date);
 	}
+
+    public String getFormattedStartDateTime() {
+        Date date = new Date(startDateTime);
+        return format.format(date);
+    }
 
     public String getFormattedFinishDateTime() {
         Date date = new Date(finishDateTime);

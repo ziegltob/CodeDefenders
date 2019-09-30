@@ -1,5 +1,6 @@
 package org.codedefenders.game.singleplayer.automated.defender;
 
+import org.codedefenders.database.TargetExecutionDAO;
 import org.codedefenders.execution.AntRunner;
 import org.codedefenders.game.GameClass;
 import org.codedefenders.game.duel.DuelGame;
@@ -52,9 +53,9 @@ public class GenerateTestPool {
             for (String t : testStrings) {
                 File newTestDir = FileUtils.getNextSubDir(AI_DIR + F_SEP + "tests" +
                         F_SEP + cut.getAlias());
-                String jFile = FileUtils.createJavaFile(newTestDir, cut.getBaseName(), t);
+                String jFile = FileUtils.createJavaTestFile(newTestDir, cut.getBaseName(), t);
                 Test newTest = AntRunner.compileTest(newTestDir, jFile, dGame.getId(), cut, AiDefender.ID);
-                TargetExecution compileTestTarget = DatabaseAccess.getTargetExecutionForTest(newTest, TargetExecution.Target.COMPILE_TEST);
+                TargetExecution compileTestTarget = TargetExecutionDAO.getTargetExecutionForTest(newTest, TargetExecution.Target.COMPILE_TEST);
                 if (compileTestTarget != null && compileTestTarget.status.equals("SUCCESS")) {
                     AntRunner.testOriginal(newTestDir, newTest);
                     validTests.add(newTest);

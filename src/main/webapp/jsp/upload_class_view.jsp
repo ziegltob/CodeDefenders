@@ -22,6 +22,8 @@
 <%@ page import="org.codedefenders.database.GameClassDAO" %>
 <%@ page import="org.codedefenders.game.singleplayer.PrepareAI" %>
 <%@ page import="java.util.List" %>
+<%@ page import="org.codedefenders.util.Paths" %>
+<%@ page import="org.codedefenders.game.GameClass" %>
 <% String pageTitle=null; %>
 <%@ include file="/jsp/header_main.jsp" %>
 <div>

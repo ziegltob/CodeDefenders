@@ -417,7 +417,7 @@ public class AdminCreateGames extends HttpServlet {
                         //
                         dummyAttackerPlayerId);
                 // insert this into the DB and link the mutant to the game
-                newMutant.insert();
+                newMutant.insert(true);
                 // BookKeeping
                 mutantMap.put(mutant, newMutant);
             }
@@ -430,7 +430,7 @@ public class AdminCreateGames extends HttpServlet {
                 Test newTest = new Test(-1, classId, multiplayerGame.getId(), test.getJavaFile(),
                         test.getClassFile(), 0, 0, dummyDefenderPlayerId, test.getLineCoverage().getLinesCovered(),
                         test.getLineCoverage().getLinesUncovered(), 0);
-                newTest.insert();
+                newTest.insert(true);
                 testMap.put(test, newTest);
             }
         }

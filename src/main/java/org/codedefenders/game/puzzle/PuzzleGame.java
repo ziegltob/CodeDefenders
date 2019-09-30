@@ -127,14 +127,14 @@ public class PuzzleGame extends AbstractGame {
         /* Add the tests from the puzzle. */
         for (Test test : mappedTests) {
             final Test newTest = Test.newTestForGameAndPlayerIds(game.id, dummyDefenderId, test);
-            newTest.insert();
+            newTest.insert(true);
         }
         Map<Mutant, Mutant> mutantMap = new HashMap<>();
 
         /* Add the mutants from the puzzle. */
         for (Mutant mutant : mappedMutants) {
             final Mutant newMutant = new Mutant(game.id, game.classId, mutant.getJavaFile(), mutant.getClassFile(), true, dummyAttackerId);
-            newMutant.insert();
+            newMutant.insert(true);
             mutantMap.put(mutant, newMutant);
         }
         List<KillMap.KillMapEntry> killmap = KillmapDAO.getKillMapEntriesForClass(game.classId);

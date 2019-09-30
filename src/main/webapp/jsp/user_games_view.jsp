@@ -19,10 +19,6 @@
 
 --%>
 <%@ page import="org.codedefenders.database.MultiplayerGameDAO" %>
-<%@ page import="org.codedefenders.game.AbstractGame" %>
-<%@ page import="org.codedefenders.game.GameMode" %>
-<%@ page import="org.codedefenders.game.GameState" %>
-<%@ page import="org.codedefenders.game.Role" %>
 <%@ page import="org.codedefenders.game.duel.DuelGame" %>
 <%@ page import="org.codedefenders.game.multiplayer.MultiplayerGame" %>
 <%@ page import="org.codedefenders.servlets.admin.AdminSystemSettings" %>
@@ -30,6 +26,9 @@
 <%@ page import="java.util.List" %>
 <%@ page import="org.codedefenders.database.UserDAO" %>
 <%@ page import="org.codedefenders.database.DuelGameDAO" %>
+<%@ page import="org.codedefenders.game.*" %>
+<%@ page import="org.codedefenders.util.Paths" %>
+<%@ page import="org.codedefenders.database.AdminDAO" %>
 <% String pageTitle= null ; %>
 <%@ include file="/jsp/header_main.jsp" %>
 <%

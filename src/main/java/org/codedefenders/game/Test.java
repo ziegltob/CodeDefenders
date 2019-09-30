@@ -39,7 +39,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.HashSet;
 import java.util.stream.Collectors;
 
 import javassist.ClassPool;
@@ -245,18 +244,10 @@ public class Test {
 	}
 
 	public Set<Mutant> getKilledMutants() {
-		// rather use a well formed DB query than this
-		Set<Mutant> killedMutants = new HashSet<>();
-		DatabaseAccess.getMultiplayerGame(DatabaseAccess.getTestForId(id).getGameId()).getKilledMutants()
-		.stream().forEach(mutant -> {
-			if (DatabaseAccess.getKillingTestIdForMutant(mutant.getId()) == id) {
-				killedMutants.add(mutant);
-			}
-		});
-		return killedMutants;
+		return DatabaseAccess.getKilledMutantsForTestId(id);
 	}
 
-	private String getAsString() {
+	public String getAsString() {
 		return FileUtils.readJavaFileWithDefault(Paths.get(javaFile));
 	}
 
@@ -266,33 +257,14 @@ public class Test {
 	}
 
 
-	@Deprecated
-	public boolean insert(boolean addSlashes) {
-		String jFileDB;
-		String cFileDB;
-		if (addSlashes) {
-			jFileDB = DatabaseAccess.addSlashes(javaFile);
-			cFileDB = classFile == null ? null : DatabaseAccess.addSlashes(classFile);
-		} else {
-			jFileDB = javaFile;
-			cFileDB = classFile == null ? null : classFile;
+	public boolean insert(boolean shouldAddSlashes) {
+		try {
+			this.id = TestDAO.storeTest(this, shouldAddSlashes);
+			return true;
+		} catch (UncheckedSQLException e) {
+			logger.error("Failed to store test to database.", e);
+			return false;
 		}
-
-		Connection conn = DB.getConnection();
-		String query = "INSERT INTO tests (JavaFile, ClassFile, Game_ID, Timestamp, RoundCreated, Player_ID, Points) VALUES (?, ?, ?, ?, ?, ?, ?);";
-		DatabaseValue[] valueList = new DatabaseValue[]{
-				DB.getDBV(jFileDB),
-				DB.getDBV(cFileDB),
-				DB.getDBV(gameId),
-				DB.getDBV(timestamp),
-				DB.getDBV(roundCreated),
-				DB.getDBV(playerId),
-				DB.getDBV(score)
-		};
-
-		PreparedStatement stmt = DB.createPreparedStatement(conn, query, valueList);
-		this.id = DB.executeUpdateGetKeys(stmt, conn);
-		return this.id > 0;
 	}
 
 	@Deprecated

@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -126,16 +127,16 @@ public class LineCoverageGenerator {
         for (Integer coveredLine : linesCovered) {
             linesToAdd.addAll(gameClass.getMethodSignaturesForLine(coveredLine));
             linesToAdd.addAll(gameClass.getClosingBracketForLine(coveredLine));
-            // If covered line belongs to method, add the method signature            
+            // If covered line belongs to method, add the method signature
         }
-        
+
         linesCovered.addAll(linesToAdd);
 
         // Include covered empty lines. This requires the lines covered so far can cover them
         linesToAdd.addAll(gameClass.getCoveredEmptyLines(linesCovered));
-        
+
         // Remove the duplicates
-        
+
         linesCovered.addAll(linesToAdd);
         linesUncovered.removeAll(linesToAdd);
 

@@ -216,9 +216,16 @@ public class TestDAO {
      * @return the generated identifier of the test as an {@code int}.
      * @throws UncheckedSQLException If storing the test was not successful.
      */
-    public static int storeTest(Test test) throws UncheckedSQLException {
-        String javaFile = DatabaseAccess.addSlashes(test.getJavaFile());
-        String classFile = DatabaseAccess.addSlashes(test.getClassFile());
+    public static int storeTest(Test test, boolean shouldAddSlashes) throws UncheckedSQLException {
+        String javaFile;
+        String classFile;
+        if (shouldAddSlashes) {
+            javaFile = DatabaseAccess.addSlashes(test.getJavaFile());
+            classFile = DatabaseAccess.addSlashes(test.getClassFile());
+        } else {
+            javaFile = test.getJavaFile();
+            classFile = test.getClassFile();
+        }
         int gameId = test.getGameId();
         int roundCreated = test.getRoundCreated();
         int mutantsKilled = test.getMutantsKilled();
@@ -235,11 +242,12 @@ public class TestDAO {
             linesUncovered = lineCoverage.getLinesUncovered().stream().map(Object::toString).collect(Collectors.joining(","));
         }
 
-        String query = "INSERT INTO tests (JavaFile, ClassFile, Game_ID, RoundCreated, MutantsKilled, Player_ID, Points, Class_ID, Lines_Covered, Lines_Uncovered) VALUES (?,?,?,?,?,?,?,?,?,?);";
+        String query = "INSERT INTO tests (JavaFile, ClassFile, Game_ID, Timestamp, RoundCreated, MutantsKilled, Player_ID, Points, Class_ID, Lines_Covered, Lines_Uncovered) VALUES (?,?,?,?,?,?,?,?,?,?,?);";
         DatabaseValue[] values = new DatabaseValue[]{
                 DatabaseValue.of(javaFile),
                 DatabaseValue.of(classFile),
                 DatabaseValue.of(gameId),
+                DatabaseValue.of(test.getTimestamp()),
                 DatabaseValue.of(roundCreated),
                 DatabaseValue.of(mutantsKilled),
                 DatabaseValue.of(playerId),

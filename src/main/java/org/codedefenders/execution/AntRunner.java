@@ -23,6 +23,7 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.filefilter.FileFilterUtils;
 import org.codedefenders.database.DatabaseAccess;
 import org.codedefenders.database.GameClassDAO;
+import org.codedefenders.database.MutantDAO;
 import org.codedefenders.game.GameClass;
 import org.codedefenders.game.LineCoverage;
 import org.codedefenders.game.Mutant;
@@ -323,7 +324,7 @@ public class AntRunner {
 	}
 
 	public static Mutant recompileMutant(int mutantId, GameClass cut) {
-	    Mutant mutant = DatabaseAccess.getMutantById(mutantId);
+	    Mutant mutant = MutantDAO.getMutantById(mutantId);
         File dir = new File(mutant.getDirectory());
 
         // Gets the classname for the mutant from the game it is in
@@ -340,7 +341,7 @@ public class AntRunner {
 			String cFile = matchingFiles.get(0).getAbsolutePath();
 			mutant.setClassFile(cFile);
 			mutant.update();
-			TargetExecution newExec = new TargetExecution(0, mutant.getId(), TargetExecution.Target.COMPILE_MUTANT, "SUCCESS", null);
+			TargetExecution newExec = new TargetExecution(0, mutant.getId(), TargetExecution.Target.COMPILE_MUTANT, TargetExecution.Status.SUCCESS, null);
 			newExec.insert();
 			return mutant;
 		} else {
@@ -348,7 +349,7 @@ public class AntRunner {
 			// New target execution recording failed compilation, providing the return messages from the ant javac task
 			String message = result.getCompilerOutput();
 			logger.error("Failed to compile mutant {}: {}", mutant.getJavaFile(), message);
-			TargetExecution newExec = new TargetExecution(0, mutant.getId(), TargetExecution.Target.COMPILE_MUTANT, "FAIL", message);
+			TargetExecution newExec = new TargetExecution(0, mutant.getId(), TargetExecution.Target.COMPILE_MUTANT, TargetExecution.Status.FAIL, message);
 			newExec.insert();
 			return mutant;
 		}
@@ -422,7 +423,7 @@ public class AntRunner {
             }
             // testOriginal already updates the test
             // test.update();
-			TargetExecution newExec = new TargetExecution(test.getId(), 0, TargetExecution.Target.COMPILE_TEST, "SUCCESS", null);
+			TargetExecution newExec = new TargetExecution(test.getId(), 0, TargetExecution.Target.COMPILE_TEST, TargetExecution.Status.SUCCESS, null);
 			newExec.insert();
 			return test;
 		} else {
@@ -431,7 +432,7 @@ public class AntRunner {
 			String message = result.getCompilerOutput();
 			logger.error("Failed to compile test {}: {}", test.getJavaFile(), message);
 			test.update();
-			TargetExecution newExec = new TargetExecution(test.getId(), 0, TargetExecution.Target.COMPILE_TEST, "FAIL", message);
+			TargetExecution newExec = new TargetExecution(test.getId(), 0, TargetExecution.Target.COMPILE_TEST, TargetExecution.Status.FAIL, message);
 			newExec.insert();
 			return test;
 		}

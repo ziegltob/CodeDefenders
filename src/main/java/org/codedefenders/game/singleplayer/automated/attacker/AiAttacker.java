@@ -26,6 +26,7 @@ import org.codedefenders.execution.TargetExecution;
 import org.codedefenders.game.*;
 import org.codedefenders.execution.MutationTester;
 import org.codedefenders.game.duel.DuelGame;
+import org.codedefenders.game.multiplayer.MultiplayerGame;
 import org.codedefenders.game.multiplayer.PlayerScore;
 import org.codedefenders.game.singleplayer.AiPlayer;
 import org.codedefenders.game.singleplayer.NoDummyGameException;
@@ -286,13 +287,13 @@ public class AiAttacker extends AiPlayer {
             String jFile = origM.getSourceFile();
             String cFile = origM.getClassFile();
             int playerId = DatabaseAccess.getPlayerIdForMultiplayerGame(ID, game.getId());
-            Mutant m = new Mutant(game.getId(), jFile, cFile, true, playerId);
+            Mutant m = new Mutant(game.getId(), origM.getClassId(), jFile, cFile, true, playerId);
             m.insert(false);
-            TargetExecution newExec = new TargetExecution(0, m.getId(), TargetExecution.Target.COMPILE_MUTANT, "SUCCESS", null);
+            TargetExecution newExec = new TargetExecution(0, m.getId(), TargetExecution.Target.COMPILE_MUTANT, TargetExecution.Status.SUCCESS, null);
             newExec.insert();
 
             MutationTester.runAllTestsOnMutant(multiplayerGame, m, messages);
-            DatabaseAccess.setAiMutantAsUsed(origMutNum, game);
+            DatabaseAccess.setAiMutantAsUsed(origMutNum, (MultiplayerGame) game);
             multiplayerGame.update();
 
             getMessagesLastTurn();

@@ -21,6 +21,7 @@ package org.codedefenders.servlets.games;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.xerces.util.SynchronizedSymbolTable;
 import org.codedefenders.database.DatabaseAccess;
+import org.codedefenders.database.TargetExecutionDAO;
 import org.codedefenders.execution.ExecutorPool;
 import org.codedefenders.execution.MutationTester;
 import org.codedefenders.execution.TargetExecution;
@@ -156,7 +157,7 @@ public class MultiplayerGameManager extends HttpServlet {
 
 				Test newTest;
 				try {
-					newTest = GameManager.createTest(activeGame.getId(), activeGame.getClassId(), testText, uid, "mp", activeGame.getMaxAssertionsPerTest());
+					newTest = GameManagingUtils.createTest(activeGame.getId(), activeGame.getClassId(), testText, uid, "mp", activeGame.getMaxAssertionsPerTest());
 				} catch (CodeValidatorException cve) {
 					messages.add(TEST_GENERIC_ERROR_MESSAGE);
 					session.setAttribute(SESSION_ATTRIBUTE_PREVIOUS_TEST, StringEscapeUtils.escapeHtml(testText));
@@ -173,10 +174,10 @@ public class MultiplayerGameManager extends HttpServlet {
 				}
 
 				logger.info("Executing Action resolveEquivalence for mutant {} and test {}", currentEquivMutantID, newTest.getId());
-				TargetExecution compileTestTarget = DatabaseAccess.getTargetExecutionForTest(newTest, TargetExecution.Target.COMPILE_TEST);
+				TargetExecution compileTestTarget = TargetExecutionDAO.getTargetExecutionForTest(newTest, TargetExecution.Target.COMPILE_TEST);
 
 				if (compileTestTarget.status.equals("SUCCESS")) {
-					TargetExecution testOriginalTarget = DatabaseAccess.getTargetExecutionForTest(newTest, TargetExecution.Target.TEST_ORIGINAL);
+					TargetExecution testOriginalTarget = TargetExecutionDAO.getTargetExecutionForTest(newTest, TargetExecution.Target.TEST_ORIGINAL);
 					if (testOriginalTarget.status.equals("SUCCESS")) {
 						logger.info("Test {} passed on the CUT", newTest.getId());
 
@@ -260,7 +261,7 @@ public class MultiplayerGameManager extends HttpServlet {
 
 					// If the user has pending duels we cannot accept the mutant, but we keep it around
 					// so students do not lose mutants once the duel is solved.
-					if (GameManager.hasAttackerPendingMutantsInGame(activeGame.getId(), attackerID)
+					if (GameManagingUtils.hasAttackerPendingMutantsInGame(activeGame.getId(), attackerID)
 							&& (session.getAttribute(Constants.BLOCK_ATTACKER) != null) && ((Boolean) session.getAttribute(Constants.BLOCK_ATTACKER))) {
 						messages.add(Constants.ATTACKER_HAS_PENDING_DUELS);
 						// Keep the mutant code in the view for later
@@ -270,17 +271,17 @@ public class MultiplayerGameManager extends HttpServlet {
 
 					CodeValidatorLevel codeValidatorLevel = activeGame.getMutantValidatorLevel();
 
-					ValidationMessage validationMessage = CodeValidator.validateMutantGetMessage(activeGame.getCUT().getAsString(), mutantText, codeValidatorLevel);
+					ValidationMessage validationMessage = CodeValidator.validateMutantGetMessage(activeGame.getCUT().getSourceCode(), mutantText, codeValidatorLevel);
 
 					if (validationMessage != ValidationMessage.MUTANT_VALIDATION_SUCCESS) {
 						// Mutant is either the same as the CUT or it contains invalid code
 						messages.add(validationMessage.get());
 						break;
 					}
-					Mutant existingMutant = GameManager.existingMutant(activeGame.getId(), mutantText);
+					Mutant existingMutant = GameManagingUtils.existingMutant(activeGame.getId(), mutantText);
 					if (existingMutant != null) {
 						messages.add(MUTANT_DUPLICATED_MESSAGE);
-						TargetExecution existingMutantTarget = DatabaseAccess.getTargetExecutionForMutant(existingMutant, TargetExecution.Target.COMPILE_MUTANT);
+						TargetExecution existingMutantTarget = TargetExecutionDAO.getTargetExecutionForMutant(existingMutant, TargetExecution.Target.COMPILE_MUTANT);
 						if (existingMutantTarget != null
 								&& !existingMutantTarget.status.equals("SUCCESS")
 								&& existingMutantTarget.message != null && !existingMutantTarget.message.isEmpty()) {
@@ -289,9 +290,9 @@ public class MultiplayerGameManager extends HttpServlet {
 						session.setAttribute(SESSION_ATTRIBUTE_PREVIOUS_MUTANT, StringEscapeUtils.escapeHtml(mutantText));
 						break;
 					}
-					Mutant newMutant = GameManager.createMutant(activeGame.getId(), activeGame.getClassId(), mutantText, uid, "mp");
+					Mutant newMutant = GameManagingUtils.createMutant(activeGame.getId(), activeGame.getClassId(), mutantText, uid, "mp");
 					if (newMutant != null) {
-						TargetExecution compileMutantTarget = DatabaseAccess.getTargetExecutionForMutant(newMutant, TargetExecution.Target.COMPILE_MUTANT);
+						TargetExecution compileMutantTarget = TargetExecutionDAO.getTargetExecutionForMutant(newMutant, TargetExecution.Target.COMPILE_MUTANT);
 						if (compileMutantTarget != null && compileMutantTarget.status.equals("SUCCESS")) {
 							Event notif = new Event(-1, activeGame.getId(), uid,
 									DatabaseAccess.getUser(uid).getUsername() + " created a mutant.",
@@ -334,7 +335,7 @@ public class MultiplayerGameManager extends HttpServlet {
 					// If it can be written to file and compiled, end turn. Otherwise, dont.
 					Test newTest;
 					try {
-						newTest = GameManager.createTest(activeGame.getId(), activeGame.getClassId(), testText, uid, "mp", activeGame.getMaxAssertionsPerTest());
+						newTest = GameManagingUtils.createTest(activeGame.getId(), activeGame.getClassId(), testText, uid, "mp", activeGame.getMaxAssertionsPerTest());
 					} catch (CodeValidatorException cve) {
 						messages.add(TEST_GENERIC_ERROR_MESSAGE);
 						session.setAttribute(SESSION_ATTRIBUTE_PREVIOUS_TEST, StringEscapeUtils.escapeHtml(testText));
@@ -351,10 +352,10 @@ public class MultiplayerGameManager extends HttpServlet {
 					}
 
 					logger.info("New Test {} by user {}", newTest.getId(), uid);
-					TargetExecution compileTestTarget = DatabaseAccess.getTargetExecutionForTest(newTest, TargetExecution.Target.COMPILE_TEST);
+					TargetExecution compileTestTarget = TargetExecutionDAO.getTargetExecutionForTest(newTest, TargetExecution.Target.COMPILE_TEST);
 
 					if (compileTestTarget.status.equals("SUCCESS")) {
-						TargetExecution testOriginalTarget = DatabaseAccess.getTargetExecutionForTest(newTest, TargetExecution.Target.TEST_ORIGINAL);
+						TargetExecution testOriginalTarget = TargetExecutionDAO.getTargetExecutionForTest(newTest, TargetExecution.Target.TEST_ORIGINAL);
 						if (testOriginalTarget.status.equals("SUCCESS")) {
 							messages.add(TEST_PASSED_ON_CUT_MESSAGE);
 
@@ -490,14 +491,11 @@ public class MultiplayerGameManager extends HttpServlet {
 						.filter(joinedGames -> joinedGames.getId() == activeGame.getId())
 						.findFirst().isPresent();
 
-				System.out.println("AiAttackerjoined: "+ aiAttackerJoinedGame);
 				int aiAttackerPlayerId = 0;
-				System.out.println("AiAttackerplayerid 0" + aiAttackerPlayerId);
 				if (aiAttackerJoinedGame) {
 					aiAttackerPlayerId = IntStream.of(DatabaseAccess.getInactiveAndActivePlayersForMultiplayerGame(activeGame.getId(), Role.ATTACKER))
 							.filter(id -> DatabaseAccess.getUserFromPlayer(id).getId() == AiAttacker.ID).findFirst().getAsInt();
 				}
-				System.out.println("AiAttackerplayerid 1" + aiAttackerPlayerId);
 				if (!aiAttackerJoinedGame || aiAttackerPlayerId != 0) {
 					boolean joinedGame;
 					if (aiAttackerPlayerId == 0) {

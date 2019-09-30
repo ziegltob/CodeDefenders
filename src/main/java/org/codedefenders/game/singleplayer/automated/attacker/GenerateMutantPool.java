@@ -1,13 +1,12 @@
 package org.codedefenders.game.singleplayer.automated.attacker;
 
-import com.sun.org.apache.xpath.internal.operations.Mult;
 import org.codedefenders.database.DatabaseAccess;
+import org.codedefenders.database.TargetExecutionDAO;
 import org.codedefenders.execution.AntRunner;
 import org.codedefenders.execution.TargetExecution;
 import org.codedefenders.game.AbstractGame;
 import org.codedefenders.game.GameClass;
 import org.codedefenders.game.Mutant;
-import org.codedefenders.game.duel.DuelGame;
 import org.codedefenders.game.multiplayer.MultiplayerGame;
 import org.codedefenders.util.FileUtils;
 import org.slf4j.Logger;
@@ -66,7 +65,7 @@ public class GenerateMutantPool {
                 fileWriter.close();
 
                 Mutant newMutant = AntRunner.compileMutant(newMutantDir, fileName, game.getId(), cut, AiAttacker.ID);
-                TargetExecution compileMutantTarget = DatabaseAccess.getTargetExecutionForMutant(newMutant, TargetExecution.Target.COMPILE_MUTANT);
+                TargetExecution compileMutantTarget = TargetExecutionDAO.getTargetExecutionForMutant(newMutant, TargetExecution.Target.COMPILE_MUTANT);
 
                 if (newMutant != null && compileMutantTarget != null
                         && compileMutantTarget.status.equals("SUCCESS")) {

@@ -214,14 +214,14 @@ public class AdminSimulateGame extends HttpServlet {
             }
             String cFile = origTest.getClassFile();
             int playerId = DatabaseAccess.getPlayerIdForMultiplayerGame(DatabaseAccess.getUserFromPlayer(origTest.getPlayerId()).getId(), game.getId());
-            Test t = new Test(game.getId(), jFile, cFile, playerId);
+            Test t = new Test(origTest.getClassId(), game.getId(), jFile, cFile, playerId);
             t.insert(false);
             t.setLineCoverage(origTest.getLineCoverage());
             t.update();
             // instead of compiling it again we can take the old execution -> save time
-            TargetExecution newExec = new TargetExecution(t.getId(), 0, TargetExecution.Target.COMPILE_TEST, "SUCCESS", null);
+            TargetExecution newExec = new TargetExecution(t.getId(), 0, TargetExecution.Target.COMPILE_TEST, TargetExecution.Status.SUCCESS, null);
             newExec.insert();
-            TargetExecution testExecution = new TargetExecution(t.getId(), 0, TargetExecution.Target.TEST_ORIGINAL, "SUCCESS", null);
+            TargetExecution testExecution = new TargetExecution(t.getId(), 0, TargetExecution.Target.TEST_ORIGINAL, TargetExecution.Status.SUCCESS, null);
             testExecution.insert();
             MutationTester.runTestOnAllMultiplayerMutants(game, t, messages);
             game.update();
@@ -249,9 +249,9 @@ public class AdminSimulateGame extends HttpServlet {
         String jFile = origM.getSourceFile();
         String cFile = origM.getClassFile();
         int playerId = DatabaseAccess.getPlayerIdForMultiplayerGame(DatabaseAccess.getUserFromPlayer(origM.getPlayerId()).getId(), game.getId());
-        Mutant m = new Mutant(game.getId(), jFile, cFile, true, playerId);
+        Mutant m = new Mutant(game.getId(), origM.getClassId(), jFile, cFile, true, playerId);
         m.insert(false);
-        TargetExecution newExec = new TargetExecution(0, m.getId(), TargetExecution.Target.COMPILE_MUTANT, "SUCCESS", null);
+        TargetExecution newExec = new TargetExecution(0, m.getId(), TargetExecution.Target.COMPILE_MUTANT, TargetExecution.Status.SUCCESS, null);
         newExec.insert();
 
         MutationTester.runAllTestsOnMutant(game, m, messages);
